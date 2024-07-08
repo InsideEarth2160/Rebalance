@@ -17,6 +17,7 @@
 
 #define ITEM_ATTACKMODE_0 105
 #define ITEM_ATTACKMODE_1 106
+#define ITEM_ATTACKMODE_POINT 154
 #define ITEM_ATTACKMODE_X 107
 
 #define ITEM_ACCURACYMODE_0 108
@@ -70,6 +71,18 @@
 
 #define ITEM_LASERATTACK 154
 
+// plains do not have attack command, reuse the icon
+#define ITEM_PLANEATTACKPOINT 101
+
+#define ITEM_PATROLMODE_ALLOWED 501
+#define ITEM_PATROLMODE_IN_PATROL 502
+#define ITEM_PATROLMODE_ATTACK_POINT 503
+#define ITEM_PATROLMODE_X 504
+
+#define ITEM_TRACEMODE_0 505
+#define ITEM_TRACEMODE_1 506
+#define ITEM_TRACEMODE_X 507
+
 
 ////    Command priorities    ////
 // Lo byte: position in dialog
@@ -83,6 +96,7 @@
 #define PRIOR_ACCURACYMODE 0x0002
 #define PRIOR_LIGHTSMODE 0x0003
 #define PRIOR_CRAWLMODE 0x0004
+#define PRIOR_TRACEMODE 0x0109
 
 //line 2
 #define PRIOR_STOP 0x0005
@@ -93,6 +107,11 @@
 #define PRIOR_ENTRENCHMENTMODE 0x0008
 #define PRIOR_EXITTRANSPORTEDCREW 0x0109
 #define PRIOR_EXITCREW 0x0009
+
+// line 3 artillery/planes
+#define PRIOR_PLANEATTACKPOINT 0x000A
+//#define PRIOR_ATTACKAREA 0x000B
+#define PRIOR_PATROLMODE 0x000B
 
 //line 3 hero/agent
 #define PRIOR_SHOWINVENTORYDIALOG 0x000A

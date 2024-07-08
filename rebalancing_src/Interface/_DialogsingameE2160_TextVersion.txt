@@ -3949,12 +3949,12 @@ NoBorderX 1
 ScaleBorder 1
 State: 0x00
 	{
-	CommandsButtons\CMD_050_BuildingResource2.prt
+	CommandsButtons\CMD_050_BuildingResourceAll.prt
 	}
 State: 0x04
 	{
 	Sound ButtonClick
-	CommandsButtons\CMD_050p_BuildingResource2.prt
+	CommandsButtons\CMD_050p_BuildingResourceAll.prt
 	}
 State: 0x08
 	{
@@ -9607,6 +9607,195 @@ State: 0x0C
 	{
 	Sound ButtonClick
 	1: 180
+	}
+}
+
+Item:501 PatrolMode_Allowed
+{
+ConstX 1
+ConstY 1
+NoBorderY 1
+NoBorderX 1
+ScaleBorder 1
+State: 0x00
+	{
+	CommandsButtons\CMD_085_Plane_Patrol.prt
+	}
+State: 0x04
+	{
+	Sound ButtonClick
+	CommandsButtons\CMD_085p_Plane_Patrol.prt
+	}
+State: 0x08
+	{
+	Identity 0x04
+	}
+State: 0x0C
+	{
+	Sound ButtonClick
+	Identity 0x00
+	}
+}
+
+Item:502 PatrolMode_PushToStopPatrol
+{
+ConstX 1
+ConstY 1
+NoBorderY 1
+NoBorderX 1
+ScaleBorder 1
+State: 0x00
+	{
+	CommandsButtons\CMD_087_Plane_PatrolStop.prt
+	}
+State: 0x04
+	{
+	Sound ButtonClick
+	CommandsButtons\CMD_087p_Plane_PatrolStop.prt
+	}
+State: 0x08
+	{
+	Identity 0x04
+	}
+State: 0x0C
+	{
+	Sound ButtonClick
+	Identity 0x00
+	}
+}
+
+Item:503 PatrolMode_AttackPoint
+{
+ConstX 1
+ConstY 1
+NoBorderY 1
+NoBorderX 1
+ScaleBorder 1
+State: 0x00
+	{
+	CommandsButtons\CMD_086_Plane_Attack.prt
+	}
+State: 0x04
+	{
+	Sound ButtonClick
+	CommandsButtons\CMD_086p_Plane_Attack.prt
+	}
+State: 0x08
+	{
+	Identity 0x04
+	}
+State: 0x0C
+	{
+	Sound ButtonClick
+	Identity 0x00
+	}
+}
+
+Item:504 PatrolMode_X
+{
+ConstX 1
+ConstY 1
+NoBorderY 1
+NoBorderX 1
+ScaleBorder 1
+State: 0x00
+	{
+	CommandsButtons\CMD_087_Plane_Mix.prt
+	}
+State: 0x04
+	{
+	Sound ButtonClick
+	CommandsButtons\CMD_087p_Plane_Mix.prt
+	}
+State: 0x08
+	{
+	Identity 0x04
+	}
+State: 0x0C
+	{
+	Sound ButtonClick
+	Identity 0x00
+	}
+}
+
+Item:505 TraceMode_0
+{
+ConstX 1
+ConstY 1
+NoBorderY 1
+NoBorderX 1
+ScaleBorder 1
+State: 0x00
+	{
+	CommandsButtons\CMD_002_MovementMode_0.prt
+	}
+State: 0x04
+	{
+	Sound ButtonClick
+	CommandsButtons\CMD_002p_MovementMode_0.prt
+	}
+State: 0x08
+	{
+	Identity 0x04
+	}
+State: 0x0C
+	{
+	Sound ButtonClick
+	Identity 0x00
+	}
+}
+
+Item:506 TraceMode_1
+{
+ConstX 1
+ConstY 1
+NoBorderY 1
+NoBorderX 1
+ScaleBorder 1
+State: 0x00
+	{
+	CommandsButtons\CMD_004_MovementMode_1.prt
+	}
+State: 0x04
+	{
+	Sound ButtonClick
+	CommandsButtons\CMD_004p_MovementMode_1.prt
+	}
+State: 0x08
+	{
+	Identity 0x04
+	}
+State: 0x0C
+	{
+	Sound ButtonClick
+	Identity 0x00
+	}
+}
+
+Item:507 TraceMode_X
+{
+ConstX 1
+ConstY 1
+NoBorderY 1
+NoBorderX 1
+ScaleBorder 1
+State: 0x00
+	{
+	CommandsButtons\CMD_005_MovementMode_X.prt
+	}
+State: 0x04
+	{
+	Sound ButtonClick
+	CommandsButtons\CMD_005p_MovementMode_X.prt
+	}
+State: 0x08
+	{
+	Identity 0x04
+	}
+State: 0x0C
+	{
+	Sound ButtonClick
+	Identity 0x00
 	}
 }
 
