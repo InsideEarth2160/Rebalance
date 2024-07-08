@@ -1,0 +1,155 @@
+#ifndef COMMON_ECH
+#define COMMON_ECH
+
+////    Defines    ////
+
+// #define USE_TRACE
+
+#define RAND(x) Rand(x)
+//#define RAND(x) RandD(__LINE__, x)
+
+#define A2G(nA) (nA >> 8)
+#define G2A(nG) (nG << 8)
+#define G2AMID(nG) ((nG << 8) + 0x80)
+
+#ifdef AI_SCRIPT
+#define ON_AI_SCRIPT(AIScriptVal) AIScriptVal
+#define ON_USER_SCRIPT(notAIScriptVal)
+#define SWITCH_USER_SCRIPT(notAIScriptVal, AIScriptVal) AIScriptVal
+#else
+#define ON_AI_SCRIPT(AIScriptVal) 
+#define ON_USER_SCRIPT(notAIScriptVal) notAIScriptVal
+#define SWITCH_USER_SCRIPT(notAIScriptVal, AIScriptVal) notAIScriptVal
+#endif
+
+#ifdef STOPCURRENTACTION
+#define CHECK_STOP_CURR_ACTION(nCommand) \
+	if (!StopCurrentAction(nCommand)) \
+    { \
+        return false; \
+    }
+#else
+#define CHECK_STOP_CURR_ACTION(nCommand)
+#endif STOPCURRENTACTION
+
+#define IS_IN_ENTRENCHMENT_MODE() (false)
+
+#ifdef USE_TRACE
+#define  TRACE(a) if (traceMode) TraceD(a);
+#define  TRACE1(a) if (traceMode) { TraceD(a); TraceD("\n"); }
+#define  TRACE2(a, b) if (traceMode) { TraceD(a); TraceD(" "); TraceD(b); TraceD("\n"); }
+#define  TRACE3(a, b, c) if (traceMode) { TraceD(a); TraceD(" "); TraceD(b); TraceD(" "); TraceD(c); TraceD("\n"); }
+#define  TRACE4(a, b, c, d) if (traceMode) { TraceD(a); TraceD(" "); TraceD(b); TraceD(" "); TraceD(c); TraceD(" "); TraceD(d); TraceD("\n"); }
+#define  TRACE5(a, b, c, d, e) if (traceMode) { TraceD(a); TraceD(" "); TraceD(b); TraceD(" "); TraceD(c); TraceD(" "); TraceD(d); TraceD(" "); TraceD(e); TraceD("\n"); }
+#define  TRACE6(a, b, c, d, e, f) if (traceMode) { TraceD(a); TraceD(" "); TraceD(b); TraceD(" "); TraceD(c); TraceD(" "); TraceD(d); TraceD(" "); TraceD(e); TraceD(" "); TraceD(f); TraceD("\n"); }
+#define  TRACE7(a, b, c, d, e, f, g) if (traceMode) { TraceD(a); TraceD(" "); TraceD(b); TraceD(" "); TraceD(c); TraceD(" "); TraceD(d); TraceD(" "); TraceD(e); TraceD(" "); TraceD(f); TraceD(" "); TraceD(g); TraceD("\n"); }
+#define  TRACE8(a, b, c, d, e, f, g, h) if (traceMode) { TraceD(a); TraceD(" "); TraceD(b); TraceD(" "); TraceD(c); TraceD(" "); TraceD(d); TraceD(" "); TraceD(e); TraceD(" "); TraceD(f); TraceD(" "); TraceD(g); TraceD(" "); TraceD(h); TraceD("\n"); }
+#define  TRACE9(a, b, c, d, e, f, g, h, i) if (traceMode) { TraceD(a); TraceD(" "); TraceD(b); TraceD(" "); TraceD(c); TraceD(" "); TraceD(d); TraceD(" "); TraceD(e); TraceD(" "); TraceD(f); TraceD(" "); TraceD(g); TraceD(" "); TraceD(h); TraceD(" "); TraceD(i); TraceD("\n"); }
+#define TRACE10(a, b, c, d, e, f, g, h, i, j) if (traceMode) { TraceD(a); TraceD(" "); TraceD(b); TraceD(" "); TraceD(c); TraceD(" "); TraceD(d); TraceD(" "); TraceD(e); TraceD(" "); TraceD(f); TraceD(" "); TraceD(g); TraceD(" "); TraceD(h); TraceD(" "); TraceD(i); TraceD(" "); TraceD(j); TraceD("\n"); }
+#define ASSERT(a) if (traceMode && !(a)) { TraceD("Assertion failed: "); TraceD(__FILE__); TraceD(":"); TraceD(__LINE__); TraceD("\n"); }
+#define __ASSERT_FALSE() if (traceMode) { TraceD("Assertion failed: "); TraceD(__FILE__); TraceD(":"); TraceD(__LINE__); TraceD("\n"); }
+#else
+#define TRACE(a)
+#define TRACE1(a)
+#define TRACE2(a, b)
+#define TRACE3(a, b, c)
+#define TRACE4(a, b, c, d)
+#define TRACE5(a, b, c, d, e)
+#define TRACE6(a, b, c, d, e, f)
+#define TRACE7(a, b, c, d, e, f, g)
+#define TRACE8(a, b, c, d, e, f, g, h)
+#define TRACE9(a, b, c, d, e, f, g, h, i)
+#define TRACE10(a, b, c, d, e, f, g, h, i, j)
+#define ASSERT(a)
+#define __ASSERT_FALSE()
+#endif USE_TRACE
+
+////    Declarations    ////
+
+consts
+{
+    eInsideGridBits = 0xFF;
+    eOneGridSize = 256;
+    eHalfGridSize = 128;
+}//・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ|
+
+enum traceMode
+{
+	"Trace OFF" item ITEM_TRACEMODE_0,
+	"Trace ON" item ITEM_TRACEMODE_1,
+multi:
+	"Trace Mode" item ITEM_TRACEMODE_X
+}//・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ|
+
+////    Functions    ////
+
+function int ABS(int nVal)
+{
+    if (nVal < 0)
+    {
+        return 0 - nVal;
+    }
+    return nVal;
+}//・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ|
+
+function int MIN(int nVal1, int nVal2)
+{
+    if (nVal1 < nVal2)
+    {
+        return nVal1;
+    }
+    return nVal2;
+}//・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ|
+
+function int MAX(int nVal1, int nVal2)
+{
+    if (nVal1 > nVal2)
+    {
+        return nVal1;
+    }
+    return nVal2;
+}//・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ|
+
+function int CLAMP(int nVal1, int nVal2, int nVal3)
+{
+	if (nVal1 < nVal2)
+    {
+		return nVal2;
+    }
+	if (nVal1 > nVal3)
+    {
+		return nVal3;
+    }
+	return nVal1;
+}//・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ|
+
+////    Commands    ////
+
+#ifdef USE_TRACE
+
+command UserOneParam9(int nMode) button traceMode priority PRIOR_TRACEMODE
+{
+	if (nMode == -1)
+	{
+		traceMode = (traceMode + 1) % 2;
+	}
+	else
+	{
+		traceMode = nMode;
+	}
+    return true;
+}//・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ・ｽ|
+
+#endif USE_TRACE
+
+#endif COMMON_ECH
+
+/*
+Zmiany w EarthC.exe:
+- poprawki starych bledow
+- deklaracje zmiennych/parametrow typu string - operacje na stringach
+- tablice stringow
+- referencje do zmiennych w wywolaniach funkcji z kodu.
+- state: return state[, n];
+*/
+

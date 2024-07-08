@@ -1,0 +1,1975 @@
+#ifndef ATTACK_ECH
+#define ATTACK_ECH
+
+////    Declarations    ////
+
+state AttackingPoint;
+state AttackingTarget;
+state EndAttackingTarget;
+state WaitToEndAttackPoint;
+state WaitToEndAttackTarget;
+state MovingToHoldAreaPos;
+state MovingAndAttack;
+#ifdef INFANTRY_EC
+state InfantryAttackingPointStopMoving;
+state InfantryWaitingToEndAttackPoint;
+state InfantryWaitingToEndAttackTarget;
+#endif INFANTRY_EC
+#ifdef PLANE_EC
+state PlaneMovingToAttackArea;
+state PlaneInAttackArea;
+#endif PLANE_EC
+
+#ifdef PLANE_EC
+function int FlyToAirportSlot();
+#endif PLANE_EC
+
+unit m_uTarget;
+int  m_nTargetX;
+int  m_nTargetY;
+int  m_nRealTargetX;
+int  m_nRealTargetY;
+int  m_bAllowAttackPointViaMoveAttack;
+int  m_nAttacksLeft;
+int  m_nMoveToTargetState;
+int  m_nMoveToTargetExtState;
+int  m_nMoveToTargetFlags;
+int  m_nDistanceToTarget;
+int  m_nTurns;
+int  m_nAttackMoveToX;
+int  m_nAttackMoveToY;
+int  m_bAutoTarget;
+int  m_bEnemyTarget;
+int  m_bNotifiedMusic;
+int  m_bArmedState;
+int  m_nFindNewTargetCounter;
+int  m_nMoveToAttackCnt;
+int  m_bSetHoldFireInCamouflageMode;
+int  m_nHoldPosX;
+int  m_nHoldPosY;
+int  m_bIsMovingAndAttack;
+int  m_nLastNotVisibleTargetTick;
+
+int m_nAttackPointStateTriesLeft;
+// 0 bit: 0,1 - direction (counter or clockwise)
+// 1 bit: step - 1st, 2nd
+// 3 bit: 
+int m_nAttackPointPositioning;
+
+#ifdef PLANE_EC
+int m_nAttackAreaPosX;
+int m_nAttackAreaPosY;
+int m_bOnPatrol;
+int m_bPatrolChangedAttackMode;
+#endif PLANE_EC
+
+consts  // attackPointAnglePositioning
+{
+    eAttackPointAnglePositioning_CounterClockwise = 0;
+    eAttackPointAnglePositioning_Clockwise = 1;
+    eAttackPointAnglePositioning_Up = 2;
+    eAttackPointAnglePositioning_StepOne = 4;
+    eAttackPointAnglePositioning_StepTwo = 8;
+}
+
+consts //m_nMoveToTargetState
+{
+    eMoveStop = 0;
+    eMoveTurnToTarget = 1;
+    eMoveToTarget = 2;
+    eMoveAwayFromTarget = 3;
+    eMoveAroundTarget = 4;
+}
+
+consts //m_nMoveToTargetExtState
+{
+    eMoveDontCare = 0;
+    eMoveFixingBadAngle = 1;
+    eNeedMoveAroundTarget = 2;
+}
+
+consts //movementMode
+{
+    eModeHoldArea     = 0;
+    eModeHoldPosition = 1;
+}
+
+consts //attackMode
+{
+    eModeFireAtWill  = 0;
+    eModeHoldFire    = 1;
+    eModeAttackPoint = 2;
+}
+
+consts
+{
+    eMaxAttackPoints = 100;
+}
+
+consts
+{
+#ifdef PLANE_EC
+    eHoldAreaRange = 18;
+#else
+    eHoldAreaRange = 12;
+#endif PLANE_EC
+    eFindNewTargetCounter = 12;//co ok. 5 tickow == co 60 tickow
+    eAttackNotVisibleDelayTicks = 100;
+}
+
+#ifdef PLANE_EC
+consts
+{
+    ePlaneCanPatrol = 0;
+    ePlaneAttackPointMode = 1;
+    ePlaneInPatrol = 2;
+}
+#endif PLANE_EC
+
+enum movementMode
+{
+    TRL_MOVEMENTMODE_0 item ITEM_MOVEMENTMODE_0,
+    TRL_MOVEMENTMODE_1 item ITEM_MOVEMENTMODE_1,
+multi:
+    TRL_MOVEMENTMODE_X item ITEM_MOVEMENTMODE_X
+}//����������������������������������������������������������������������������������������������������|
+
+enum attackMode
+{
+    TRL_ATTACKMODE_0 item ITEM_ATTACKMODE_0,
+    TRL_ATTACKMODE_1 item ITEM_ATTACKMODE_1,
+multi:
+    TRL_ATTACKMODE_X item ITEM_ATTACKMODE_X
+}
+
+// just a placeholder to correctly show button states in GUI
+enum extendedAttackMode
+{
+    TRL_ATTACKMODE_0 item ITEM_ATTACKMODE_0,
+    TRL_ATTACKMODE_1 item ITEM_ATTACKMODE_1,
+    "Point Attack"   item ITEM_ATTACKMODE_POINT,
+multi:
+    TRL_ATTACKMODE_X item ITEM_ATTACKMODE_X
+}
+
+#ifdef PLANE_EC
+enum patrolMode
+{
+    "Can Patrol" item ITEM_PATROLMODE_ALLOWED,
+    "Attack Point Mode" item ITEM_PATROLMODE_ATTACK_POINT,
+    "Stop Patrolling" item ITEM_PATROLMODE_IN_PATROL,
+multi:
+    "Different Patrol Modes" item ITEM_PATROLMODE_X
+}
+#endif
+
+////    Functions    ////
+
+function void ResetAttackTarget()
+{
+    m_uTarget = null;
+    SetAttackTarget(null);
+    //nie kasujemy m_bAutoTarget bo bedzie sprawdzane w EndAttackingTarget
+    m_bEnemyTarget = false;
+    m_bNotifiedMusic = false;
+    m_nLastNotVisibleTargetTick = 0;
+}//����������������������������������������������������������������������������������������������������|
+
+function void CalculateRealTarget(int nX, int nY)
+{
+    int maxRandom, curRandomGx, curRandomGy;
+    int bPlusSignX, bPlusSignY;
+
+    if (attackPointArea != 1)
+    {
+        maxRandom = 0x200;  // G2A(2)
+    }
+    else
+    {
+        maxRandom = 0x500;  // G2A(5)
+    }
+
+    bPlusSignX = Rand(10) % 10;
+    bPlusSignY = Rand(10) % 10;
+
+    // A2G to remove non-grid coordinates, they make Artilerry go crazy
+    // when trying to setup a right alpha angle
+    curRandomGx = A2G(Rand(maxRandom) % maxRandom);
+    curRandomGy = A2G(Rand(maxRandom) % maxRandom);
+
+    if (bPlusSignX < 5)
+    {
+        // back to pixel coordinates (or whatever they are)
+        m_nRealTargetX = nX + G2A(curRandomGx);
+    }
+    else
+    {
+        m_nRealTargetX = nX - G2A(curRandomGx);
+    }
+
+    if (bPlusSignY < 5)
+    {
+        m_nRealTargetY = nY + G2A(curRandomGy);
+    }
+    else
+    {
+        m_nRealTargetY = nY - G2A(curRandomGy);
+    }
+
+    TRACE3("Real target X,Y ", m_nRealTargetX, m_nRealTargetY);
+}
+
+function void SetPointTarget(int nX, int nY)
+{
+    ResetAttackTarget();
+    m_nTargetX = nX;
+    m_nTargetY = nY;
+}
+
+#ifdef PLANE_EC
+function int PlainModeAllowsPatrolling()
+{
+    if (patrolMode == ePlaneCanPatrol || patrolMode == ePlaneInPatrol)
+    {
+        return true;
+    }
+    return false;
+}
+
+function void ForcePatrolMode()
+{
+    TRACE1("Force change to patrol mode");
+    patrolMode = ePlaneCanPatrol;
+    ChangedCommandState();
+}
+
+function int IsPlaneInAttackArea(int nAreaPosX, int nAreaPosY)
+{
+    int nRangeOfFire;
+    int nCurX, nCurY;
+
+    nCurX = GetLocationX();
+    nCurY = GetLocationY();
+    nRangeOfFire = GetRangeOfFire();
+    if (Distance(nAreaPosX, nAreaPosY, nCurX, nCurY) <= (nRangeOfFire + G2A(eHoldAreaRange - 2)))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+function int PlaneMustReturnToAerodrome()
+{
+    int bNoFuel;
+
+    // for some reason AttackPoint always says !HaveEnoughFuelToExecuteCommands()
+    // so ommit this check in that specific scenario
+    if ((m_bOnPatrol && !HaveEnoughFuelToExecuteCommands())
+        || MustBackToAirportForRefuel())
+    {
+        bNoFuel = true;
+    }
+    else
+    {
+        bNoFuel = false;
+    }
+    if (bNoFuel || IsOutOfAmmo())
+    {
+        if (IsOutOfAmmo())
+        {
+            TRACE2("Out of ammo", GetUnitRef());
+        }
+        else
+        {
+            TRACE2("Out of fuel", GetUnitRef());
+        }
+        return true;
+    }
+    
+    return false;
+}
+
+function void StopPatrol(int bFullStop)
+{
+    if (!m_bOnPatrol)
+    {
+        return;
+    }
+
+    TRACE3("Stop patrol", bFullStop, GetUnitRef());
+    if (m_bPatrolChangedAttackMode)
+    {
+        attackMode = eModeHoldFire;
+        m_bPatrolChangedAttackMode = false;
+        ChangedCommandState();
+    }
+    EndCommand(true);
+
+    if (HaveAirport() && !IsInAirportSlotPos())
+    {
+        if (FlyToAirportSlot())
+        {
+            TRACE2("->FlyingToAirportSlot", GetUnitRef());
+            state FlyingToAirportSlot;
+        }
+    }
+
+    if (bFullStop)
+    {
+        m_bOnPatrol = false;
+        if (patrolMode == ePlaneInPatrol)
+        {
+            patrolMode = ePlaneAttackPointMode;
+            ChangedCommandState();
+        }
+    }
+}
+
+function void StartPatrol(int nX, int nY)
+{
+    m_nAttackAreaPosX = nX;
+    m_nAttackAreaPosY = nY;
+    m_bOnPatrol = true;
+    m_bPatrolChangedAttackMode = false;
+    patrolMode = ePlaneInPatrol;
+    ChangedCommandState();
+    SetAllowPlaneStop(false);
+    CallMoveToPoint(nX, nY);
+    SetStateDelay(0);
+    state PlaneMovingToAttackArea;
+}
+
+function int MakePlaneAreaPatrol(int nX, int nY, int bChangeModeToPatrol)
+{
+    TRACE5("MakePlaneAreaPatrol", nX, nY, bChangeModeToPatrol, GetUnitRef());
+    if (PlaneMustReturnToAerodrome())
+    {
+        TRACE2(" -> Cannot do", GetUnitRef());
+        return false;
+    }
+    if (!PlainModeAllowsPatrolling())
+    {
+        if (bChangeModeToPatrol)
+        {
+            ForcePatrolMode();
+        }
+        else
+        {
+            TRACE2(" -> Not in patrol mode", GetUnitRef());
+            return false;
+        }
+    }
+
+    CHECK_STOP_CURR_ACTION(eCommandMove);
+    StartPatrol(nX, nY);
+    return true;
+}
+
+function int BackToPlaneAreaPatrol()
+{
+    if (!m_bOnPatrol)
+    {
+        return false;
+    }
+
+    return MakePlaneAreaPatrol(m_nAttackAreaPosX, m_nAttackAreaPosY, false);
+}
+#endif PLANE_EC
+
+function void StartMoveToAttackPoint(int nX, int nY)
+{
+    m_nMoveToTargetFlags = eMoveStop;
+    m_nMoveToTargetExtState = eMoveDontCare;
+    m_nDistanceToTarget = DistanceTo(m_nRealTargetX, m_nRealTargetY);
+    m_nTurns = 0;
+    m_nAttackMoveToX = 0;
+    m_nAttackMoveToY = 0;
+    m_nAttackPointStateTriesLeft = 10;
+    m_nAttackPointPositioning = 0;
+}
+
+function int MakeCommandAttackPoint(int nX, int nY)
+{
+    // only check those things which change dynamically
+    if (m_nAttacksLeft == 0)
+    {
+        TRACE2("Finish attack on point", GetUnitRef());
+        return false;
+    }
+#ifdef PLANE_EC
+    if (PlaneMustReturnToAerodrome())
+    {
+        TRACE2("Must go to airfield -> end attack on point", GetUnitRef());
+        return false;
+    }
+#endif PLANE_EC
+    CHECK_STOP_CURR_ACTION(eCommandAttackPoint);
+    AutoSelectBestHeroWeaponForTarget(nX, nY);
+	SetPointTarget(nX, nY);
+    CalculateRealTarget(nX, nY);
+    StartMoveToAttackPoint(nX, nY);
+    m_nMoveToAttackCnt = 0;
+    m_nAttacksLeft = m_nAttacksLeft - 1;
+    state AttackingPoint;
+    SetStateDelay(0);
+    return true;
+}
+
+function void AttackPointSetMoveState(int nMoveState)
+{
+    m_nMoveToTargetState = nMoveState;
+    m_nAttackPointPositioning = 0;
+}
+
+function int AttackPointFindBetterAnglePosition()
+{
+    int nDirection;
+    int nStep;
+    int nUp;
+    int nX, nY;
+
+    // a quarter move is done in two steps to allow turn after each one
+    nStep = m_nAttackPointPositioning >> 1;
+
+    // decision is made after each second step
+    if (nStep == 0 || nStep == eAttackPointAnglePositioning_StepTwo)
+    {
+        TRACE1("AttackPointFindBetterAnglePosition, choosing...");
+        // choose direction: clock wise or counter clockwise
+        if (Rand(100) % 100 < 50)
+        {
+            nDirection = eAttackPointAnglePositioning_CounterClockwise;
+        }
+        else
+        {
+            nDirection = eAttackPointAnglePositioning_Clockwise;
+        }
+
+        if (Rand(100) % 100 < 50)
+        {
+            nUp = false;
+        }
+        else
+        {
+            nUp = true;
+        }
+    }
+    else
+    {
+        nDirection = m_nAttackPointPositioning & 0x1;
+        nStep = m_nAttackPointPositioning >> 2;
+        if ((m_nAttackPointPositioning >> 1) & 0x1)
+        {
+            nUp = true;
+        }
+        else
+        {
+            nUp = false;
+        }
+    }
+
+    TRACE4("AttackPointFindBetterAnglePosition", nDirection, nStep, nUp);
+
+    nX = GetLocationGx();
+    nY = GetLocationGy();
+
+    // do one step for a quarter of a cicle move
+    if (nDirection == eAttackPointAnglePositioning_CounterClockwise)
+    {
+        if (nUp)
+        {
+            ++nX;
+            if (nStep == eAttackPointAnglePositioning_StepTwo)
+            {
+                ++nY;
+            }
+        }
+        else
+        {
+            --nX;
+            if (nStep == eAttackPointAnglePositioning_StepTwo)
+            {
+                --nY;
+            }
+        }
+    }
+    else
+    {
+        if (nUp)
+        {
+            ++nX;
+            if (nStep == eAttackPointAnglePositioning_StepTwo)
+            {
+                --nY;
+            }
+        }
+        else
+        {
+            --nX;
+            if (nStep == eAttackPointAnglePositioning_StepTwo)
+            {
+                ++nY;
+            }
+        }
+    }
+    MoveToPoint(G2A(nX), G2A(nY));
+    return 15;
+}
+
+function void SetTarget(unit uTarget, int bAutoTarget)
+{
+    TRACE2("SetTarget ", uTarget);
+    ResetAttackTarget();
+    m_uTarget = uTarget;
+    SetAttackTarget(m_uTarget);
+    m_nTargetX = m_uTarget.GetLocationX();
+    m_nTargetY = m_uTarget.GetLocationY();
+    m_bEnemyTarget = IsEnemy(uTarget);
+    m_bAutoTarget = bAutoTarget;
+    m_bNotifiedMusic = false;
+    m_nFindNewTargetCounter = eFindNewTargetCounter;
+    m_nMoveToAttackCnt = 0;
+    m_nLastNotVisibleTargetTick = 0;
+}//����������������������������������������������������������������������������������������������������|
+
+function int StartMoveToAttackTarget(unit uTarget, int bAutoTarget)
+{
+    int nInRange;
+    int nShootCount;
+
+    ASSERT(uTarget != null);
+    m_nMoveToTargetFlags = 0;
+    nInRange = IsTargetInRange(uTarget, bAutoTarget);
+    if (nInRange == eInRangeGoodHit)
+    {
+        if (IsMoving())
+        {
+#ifdef PLANE_EC
+            CallMoveToPoint(uTarget.GetLocationX(), uTarget.GetLocationY());
+#else
+            CallStopMoving();
+#endif PLANE_EC
+        }
+        m_nMoveToTargetState = eMoveStop;
+    }
+    else if (nInRange == eInRangeBadAngleAlpha)
+    {
+#ifdef PLANE_EC
+        CallMoveToPoint(uTarget.GetLocationX(), uTarget.GetLocationY());
+#else
+        if (IsMoving() && !IsMovingTurning())
+        {
+            CallStopMoving();
+            m_nMoveToTargetState = eMoveStop;
+        }
+#ifdef INFANTRY_EC
+        if (!IsMoving() && IsInAttackingAnimFrame() && (GetRelativeAngleTo(uTarget) <= 0x40))
+        {
+            //obroci sie sam
+            if (IsEnemy(m_uTarget))
+            {
+                nShootCount = -1;
+            }
+            else
+            {
+                nShootCount = 1;
+            }
+            CallAttackTarget(m_uTarget, nShootCount);
+            m_nMoveToTargetState = eMoveStop;
+        }
+#endif INFANTRY_EC
+        else
+        {
+            CallTurnToAngle(GetCannonAngleToTarget(uTarget));
+            m_nMoveToTargetState = eMoveTurnToTarget;
+        }
+#endif PLANE_EC
+    }
+    else if (nInRange == eInRangeTooClose)
+    {
+        if (!IsImmobileUnitOrCantMoveInCurrentState())
+        {
+            MoveAwayFromPoint(uTarget.GetLocationX(), uTarget.GetLocationY(), G2A(2));
+            m_nMoveToTargetState = eMoveAwayFromTarget;
+        }
+    }
+    else
+    {
+        if (!IsImmobileUnitOrCantMoveInCurrentState())
+        {
+            CallMoveToPoint(uTarget.GetLocationX(), uTarget.GetLocationY());
+            m_nMoveToTargetState = eMoveToTarget;
+            m_nMoveToTargetFlags = (1 << eMoveToTarget);
+        }
+    }
+    return nInRange;
+}//����������������������������������������������������������������������������������������������������|
+
+function void StoreHoldPos()
+{
+    m_nHoldPosX = GetLocationX();
+    m_nHoldPosY = GetLocationY();
+}//����������������������������������������������������������������������������������������������������|
+
+//wywolywane po zmianie camouflageMode
+//jesli zostalo ustawione to zmieniamy attackMode na holdFire (o ile bylo na fireAtWill)
+//jesli zostalo skasowane to przywracamy attackMode na fireAtWill (o ile nie zostalo wczesniej zmienione)
+function void OnSetCamouflageMode(int nMode)
+{
+    if (nMode != 0)
+    {
+        if (attackMode == eModeFireAtWill)
+        {
+            attackMode = eModeHoldFire;
+            m_bSetHoldFireInCamouflageMode = true;
+            ChangedCommandState();
+        }
+    }
+    else
+    {
+        if (m_bSetHoldFireInCamouflageMode)
+        {
+            attackMode = eModeFireAtWill;
+            m_bSetHoldFireInCamouflageMode = false;
+            ChangedCommandState();
+        }
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+function int IsInAttackState()
+{
+    if ((state == AttackingPoint) || (state == AttackingTarget) || (state == WaitToEndAttackPoint) || (state == WaitToEndAttackTarget)
+#ifdef INFANTRY_EC
+        || (state == InfantryAttackingPointStopMoving) || (state == InfantryWaitingToEndAttackPoint) || (state == InfantryWaitingToEndAttackTarget)
+#endif INFANTRY_EC
+        )
+    {
+        return true;
+    }
+    return false;
+}//����������������������������������������������������������������������������������������������������|
+
+function void StopAttacking()
+{
+#ifdef INFANTRY_EC
+    CallStopAttack();
+#else
+    StopAttack();
+#endif INFANTRY_EC
+    ResetAttackTarget();
+}//����������������������������������������������������������������������������������������������������|
+
+function void StopCurrentActionAttacking()
+{
+    m_bIsMovingAndAttack = false;
+    if (IsInAttackState())
+    {
+        StopAttacking();
+    }
+#ifndef INFANTRY_EC
+    else
+    {
+        //jesli wydalismy rozkaz ataku na cos innego niz enemy to unit moze wyjsc ze stanu ataku zanim dzialo wystrzeli
+        //i wtedy dzialo zostanie w stanie ataku gdy unit bedzie jechal (do czasu az bedzie mialo dobra pozycje do wystrzalu)
+        //dlatego trzeba zatrzymac strzelanie inne niz auto (z cannona)
+        StopNotAutoAttack();
+    }
+#endif INFANTRY_EC
+}//����������������������������������������������������������������������������������������������������|
+
+#ifndef INFANTRY_EC
+
+function void SetCannonsAutoFire()
+{
+    if (attackMode == eModeFireAtWill)
+    {
+        SetCannonsAutoFire(true);
+    }
+    else
+    {
+        SetCannonsAutoFire(false);
+        if ((state != AttackingTarget) || m_bAutoTarget)
+        {
+            StopAttack();
+        }
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+#endif INFANTRY_EC
+
+function int GetSurfaceTargetType()
+{
+    int nType;
+
+    if (CanAttackLand())
+    {
+        if (CanAttackAir())
+        {
+            return eTargetTypeLand | eTargetTypeAir;
+        }
+        else
+        {
+            return eTargetTypeLand;
+        }
+    }
+    else if (CanAttackAir())
+    {
+        return eTargetTypeAir;
+    }
+    return 0;
+}//����������������������������������������������������������������������������������������������������|
+
+function unit FindBestTarget()
+{
+    int nIndex, nCount, nInRange;
+    unit uTarget, uResult;
+    int nDist, nRangeOfFire, nTargetX, nTargetY;
+
+    if (FindTargets(GetSurfaceTargetType() | eTargetTypeAny | eTargetTypeDamagableOnly, 
+                    GetEnemyIFF(), GetTargetPriorities(), eSortTypeRange, false) == 0)
+    {
+        return null;
+    }
+    nCount = GetFoundTargetsCount();
+    for (nIndex = 0; nIndex < nCount; ++nIndex)
+    {
+        uTarget = GetFoundTarget(nIndex);
+        nInRange = IsTargetInRange(uTarget, true);
+        if (nInRange == eInRangeGoodHit)
+        {
+            uResult = uTarget;
+            break;
+        }
+        else if (IS_IN_ENTRENCHMENT_MODE())
+        {
+            continue;
+        }
+        else if (nInRange == eInRangeBadAngleAlpha)
+        {
+            if (uResult == null)
+            {
+                uResult = uTarget;
+            }
+        }
+        else
+        {
+            if ((movementMode == eModeHoldPosition) || IsImmobileUnitOrCantMoveInCurrentState())
+            {
+                continue;
+            }
+            if (movementMode == eModeHoldArea)
+            {
+                nDist = DistanceTo(uTarget);
+                nRangeOfFire = GetRangeOfFire();
+                if (nDist > (nRangeOfFire - eOneGridSize))
+                {
+                    //biezemy MoveTarget po to aby dobrze dzialalo gdy uTarget nas atakuje
+                    if (uTarget.IsMoving())
+                    {
+                        uTarget.GetMoveTarget(nTargetX, nTargetY);
+                    }
+                    else
+                    {
+                        uTarget.GetLocation(nTargetX, nTargetY);
+                    }
+                    if (state == MovingToHoldAreaPos)
+                    {
+                        if ((DistanceTo(nTargetX, nTargetY) > (nRangeOfFire + G2A(eHoldAreaRange - 2))) ||
+                            (Distance(m_nHoldPosX, m_nHoldPosY, nTargetX, nTargetY) > (nRangeOfFire + G2A(eHoldAreaRange - 2))))
+                        {
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        if (DistanceTo(nTargetX, nTargetY) > (nRangeOfFire + G2A(eHoldAreaRange - 1)))
+                        {
+                            continue;
+                        }
+                    }
+                }
+            }
+            uResult = uTarget;
+        }
+    }
+    ClearFoundTargetsArray();
+    return uResult;
+}//����������������������������������������������������������������������������������������������������|
+
+//szukamy celu o priorytecie wyzszym niz dotychczasowy (tylko takie ktore sa w zasiegu)
+function unit FindBetterTarget(unit uCurrTarget)
+{
+    int nIndex, nCount, nInRange, nCurrPriority, nTargetPriorities;
+    unit uTarget, uResult;
+
+    ASSERT(uCurrTarget);
+    nTargetPriorities = GetTargetPriorities();
+    nCurrPriority = GetTargetPriority(uCurrTarget, nTargetPriorities);
+    if (nCurrPriority >= CalcMaxTargetPriority(nTargetPriorities))
+    {
+        //nie mozna juz znalezc lepszego
+        return null;
+    }
+    if (FindTargets(GetSurfaceTargetType() | 
+#ifdef PLANE_EC
+                    eTargetTypePlane | 
+#else
+                    eTargetTypeAny | 
+#endif !PLANE_EC
+                    eTargetTypeDamagableOnly, GetEnemyIFF(), nTargetPriorities, eSortTypeRange, false) == 0)
+    {
+        return null;
+    }
+    nCount = GetFoundTargetsCount();
+    for (nIndex = 0; nIndex < nCount; ++nIndex)
+    {
+        uTarget = GetFoundTarget(nIndex);
+        if (GetTargetPriority(uTarget, nTargetPriorities) <= nCurrPriority)
+        {
+            //pozostale cele maja tez mniejszy (lub rowny) priorytet wiec nie szukamy dalej
+            break;
+        }
+        nInRange = IsTargetInRange(uTarget, true);
+        if ((nInRange == eInRangeGoodHit) || (nInRange == eInRangeBadAngleAlpha))
+        {
+            uResult = uTarget;
+            break;
+        }
+    }
+    ClearFoundTargetsArray();
+    return uResult;
+}//����������������������������������������������������������������������������������������������������|
+
+function int FindNothingTarget(int bStoreHoldPos)
+{   
+    unit uTarget;
+
+    if ((attackMode != eModeFireAtWill) || !HaveCannonAndCanAttackInCurrentState()
+#ifdef PLANE_EC
+        || (GetCannonType() == eBomb)
+#endif PLANE_EC
+       )
+    {
+        return false;
+    }
+    uTarget = FindBestTarget();
+    if (uTarget != null)
+    {
+        ResetCamouflageMode();
+        if (bStoreHoldPos)
+        {
+            StoreHoldPos();
+        }
+        AutoSelectBestHeroWeaponForTarget(uTarget);
+        SetTarget(uTarget, true);
+        StartMoveToAttackTarget(uTarget, true);
+        state AttackingTarget;
+        SetStateDelay(0);
+        return true;
+    }
+    return false;
+}//����������������������������������������������������������������������������������������������������|
+
+function int FindNothingTarget()
+{   
+    return FindNothingTarget(true);
+}//����������������������������������������������������������������������������������������������������|
+
+function void CheckArmedState(int bArmed)
+{
+    if (bArmed)
+    {
+        if (!m_bArmedState)
+        {
+            SetArmedState(true);
+            m_bArmedState = true;
+        }
+    }
+    else
+    {
+        if (m_bArmedState)
+        {
+            SetArmedState(false);
+            m_bArmedState = false;
+        }
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+function void CheckArmedState()
+{
+    //nie sprawdzamy HaveCannon bo wiekszosc unitow ma a te ktore nie maja zawsze zwroca WasAnyEnemyInLastStepVisibility=FALSE (bo nie jest sprawdzane)
+    //a poza tym SetArmedState dla nich nic nie robi
+    if (WasAnyEnemyInLastStepVisibility())
+    {
+        if (!m_bArmedState)
+        {
+            SetArmedState(true);
+            m_bArmedState = true;
+        }
+    }
+    else if ((state != AttackingPoint) && (state != AttackingTarget))
+    {
+        if (m_bArmedState)
+        {
+            SetArmedState(false);
+            m_bArmedState = false;
+        }
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+function int MakeCommandMoveAttack(int nCommand, int nX, int nY)
+{
+    TRACE2("command MoveAttack", GetUnitRef());
+    if (IS_IN_ENTRENCHMENT_MODE())
+    {
+        return false;
+    }
+    if (!HaveCannonAndCanAttackInCurrentState())
+    {
+        TRACE2("command MoveAttack, HaveCannonAndCanAttackInCurrentState", GetUnitRef());
+        CHECK_STOP_CURR_ACTION(nCommand);
+        MoveToPoint(nX, nY);
+	    state Moving;
+    }
+#ifdef PLANE_EC
+    if (!HaveEnoughFuelToExecuteCommands() || IsOutOfAmmo())
+    {
+        TRACE2("command MoveAttack, no fuel or out of ammo", GetUnitRef());
+        return false;
+    }
+    if (GetCannonType() == eBomb)
+    {
+        CHECK_STOP_CURR_ACTION(nCommand);
+	    SetPointTarget(nX, nY);
+        StartMoveToAttackPoint(nX, nY);
+        m_nMoveToAttackCnt = 0;
+        state AttackingPoint;
+        SetStateDelay(0);
+        return true;
+    }
+#endif PLANE_EC
+    if ((state == AttackingTarget) && m_bAutoTarget)
+    {
+        m_nMoveToX = nX;
+        m_nMoveToY = nY;
+        m_bIsMovingAndAttack = true;
+        //dalej zostajemy w stanie AttackingTarget
+    }
+    else
+    {
+        CHECK_STOP_CURR_ACTION(nCommand);
+        TRACE1("command MoveAttack, MoveToPoint");
+        MoveToPoint(nX, nY);
+        m_bIsMovingAndAttack = true;
+        SetStateDelay(0);
+        state MovingAndAttack;
+    }
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+////    States    ////
+
+#ifndef PLANE_EC
+#ifndef INFANTRY_EC
+state AttackingPoint
+{
+    int nInRange;
+    int nX, nY, nMoveToX, nMoveToY, nShots;
+
+    nShots = 1;
+
+    nInRange = IsPointInRange(m_nRealTargetX, m_nRealTargetY);
+    if (nInRange == eInRangeGoodHit)
+    {
+        if (IsMoving())
+        {
+            CallStopMoving();
+        }
+        TRACE1("ok");
+        AttackPointSetMoveState(eMoveStop);
+        AttackPoint(m_nRealTargetX, m_nRealTargetY, nShots);
+        return WaitToEndAttackPoint, 200;
+    }
+    if (IS_IN_ENTRENCHMENT_MODE())
+    {
+        EndCommand(true);
+        return Nothing, 0;
+    }
+    if (nInRange == eInRangeBadAngleAlpha)
+    {
+        TRACE1("eInRangeBadAngleAlpha");
+        if ((m_nMoveToTargetState == eMoveAwayFromTarget || m_nMoveToTargetState == eMoveAroundTarget) && IsMoving())
+        {
+            TRACE1(" Let go");
+            //pozwalamy mu odejsc
+            return AttackingPoint, 2;
+        }
+        TRACE1(" !way");
+
+        if (IsMoving() && !IsMovingTurning())
+        {
+            TRACE1(" stop");
+            CallStopMoving();
+            AttackPointSetMoveState(eMoveStop);
+        }
+        else if (m_nMoveToTargetState != eMoveTurnToTarget)
+        {
+            TRACE1(" turn");
+            CallTurnToAngle(GetCannonAngleToPoint(m_nRealTargetX, m_nRealTargetY));
+            AttackPointSetMoveState(eMoveTurnToTarget);
+        }
+        else if (!IsMoving() && !IsMovingTurning())
+        {
+            // time to find some better position
+            TRACE1(" need better pos for turn");
+            return AttackingPoint, AttackPointFindBetterAnglePosition();
+        }
+        return AttackingPoint, 2;
+    }
+    if (IsImmobileUnitOrCantMoveInCurrentState())
+    {
+        EndCommand(true);
+        return Nothing, 0;
+    }
+    if (!IsMoving())
+    {
+        ++m_nMoveToAttackCnt;
+        if (m_nMoveToAttackCnt > 5)
+        {
+            TRACE1("AttackingPoint->(m_nMoveToAttackCnt > 5)->WaitToEndAttackPoint");
+            StopAttacking();
+            EndCommand(true);
+            return WaitToEndAttackPoint, 0;
+        }
+    }
+    else
+    {
+        m_nMoveToAttackCnt = 0;
+    }
+    if (nInRange == eInRangeTooClose)
+    {
+        TRACE1("eInRangeTooClose");
+        if (m_nMoveToTargetState == eMoveAwayFromTarget && IsMoving())
+        {
+            TRACE1("   let go");
+            return AttackingPoint, 5;
+        }
+        MoveAwayFromPoint(m_nRealTargetX, m_nRealTargetY, G2A(2));
+        AttackPointSetMoveState(eMoveAwayFromTarget);
+        return AttackingPoint, 5;
+    }
+    if ((m_nMoveToTargetState == eMoveToTarget) && IsMoving())
+    {
+        return AttackingPoint, 5;
+    }
+    if (nInRange == eNotInRange)
+    {
+        TRACE1("eNotInRange");
+        if (m_nMoveToTargetState == eMoveToTarget && IsMoving())
+        {
+            TRACE1("   let go");
+            return AttackingPoint, 5;
+        }
+        AttackPointSetMoveState(eMoveToTarget);
+        CallMoveToPoint(m_nRealTargetX, m_nRealTargetY);
+        return AttackingPoint, 5;
+    }
+    if ((m_nMoveToTargetState != eMoveAroundTarget) || !IsMoving())
+    {
+        TRACE2("nInRange ", nInRange);
+        TRACE1("(m_nMoveToTargetState != eMoveAroundTarget) || !IsMoving()");
+        nX = GetLocationX();
+        nY = GetLocationY();
+        if (((A2G(nX) == A2G(m_nRealTargetX)) && (A2G(nY) == A2G(m_nRealTargetY))) ||
+            (DistanceTo(m_nRealTargetX, m_nRealTargetY) <= 0x180))
+        {
+            MoveAwayFromPoint(m_nRealTargetX, m_nRealTargetY, G2A(2));
+            AttackPointSetMoveState(eMoveAwayFromTarget);
+        }
+        else
+        {
+            // don't go around in case of eInRangeBadHit or other unexpected situation
+            // it's better to stop than to go somewhere and loose an artillery
+            return WaitToEndAttackPoint;
+        }
+    }
+    return AttackingPoint, 5;
+}
+#endif INFANTRY_EC
+#endif PLANE_EC
+
+#ifdef INFANTRY_EC
+state AttackingPoint
+{
+    StopAttacking();
+    EndCommand(true);
+    return Nothing, 0;
+}
+#endif INFANTRY_EC
+
+#ifdef PLANE_EC
+state AttackingPoint
+{
+    int nInRange;
+    int nX, nY, nMoveToX, nMoveToY, nShots;
+
+    if (PlaneMustReturnToAerodrome())
+    {
+        StopAttacking();
+        EndCommand(true);
+        return Nothing, 0;
+    }
+    nShots = 10;  // some of plains cannot use there potential while doing single shots
+
+    nInRange = IsPointInRange(m_nRealTargetX, m_nRealTargetY);
+    if (nInRange == eInRangeGoodHit)
+    {
+        CallMoveToPoint(m_nRealTargetX, m_nRealTargetY);
+        AttackPoint(m_nRealTargetX, m_nRealTargetY, nShots);
+        return WaitToEndAttackPoint, 80;
+    }
+    if (nInRange == eInRangeBadAngleAlpha)
+    {
+        TRACE1("eInRangeBadAngleAlpha");
+        if (IsMoving() && (m_nMoveToTargetState == eMoveAwayFromTarget) &&
+            (DistanceTo(m_nRealTargetX, m_nRealTargetY) <= 0x100))
+        {
+            TRACE1(" Let go");
+            //pozwalamy mu odejsc
+            return AttackingPoint, 2;
+        }
+        TRACE1(" !way");
+        CallMoveToPoint(m_nRealTargetX, m_nRealTargetY);
+        return AttackingPoint, 2;
+    }
+    if (IsImmobileUnitOrCantMoveInCurrentState())
+    {
+        EndCommand(true);
+        return Nothing, 0;
+    }
+    if (!IsMoving())
+    {
+        ++m_nMoveToAttackCnt;
+        if (m_nMoveToAttackCnt > 5)
+        {
+            TRACE1("AttackingPoint->(m_nMoveToAttackCnt > 5)->Nothing");
+            StopAttacking();
+            EndCommand(true);
+            return Nothing, 0;
+        }
+    }
+    else
+    {
+        m_nMoveToAttackCnt = 0;
+    }
+    if (nInRange == eInRangeTooClose)
+    {
+        MoveAwayFromPoint(m_nRealTargetX, m_nRealTargetY, G2A(2));
+        m_nMoveToTargetState = eMoveAwayFromTarget;
+        return AttackingPoint, 5;
+    }
+    if ((m_nMoveToTargetState == eMoveToTarget) && IsMoving())
+    {
+        return AttackingPoint, 5;
+    }
+    if (nInRange == eNotInRange)
+    {
+        m_nMoveToTargetState = eMoveToTarget;
+        CallMoveToPoint(m_nRealTargetX, m_nRealTargetY);
+        return AttackingPoint, 5;
+    }
+    if ((m_nMoveToTargetState != eMoveAroundTarget) || !IsMoving())
+    {
+        nX = GetLocationX();
+        nY = GetLocationY();
+        if (((A2G(nX) == A2G(m_nRealTargetX)) && (A2G(nY) == A2G(m_nRealTargetY))) ||
+            (DistanceTo(m_nRealTargetX, m_nRealTargetY) <= 0x180))
+        {
+            MoveAwayFromPoint(m_nRealTargetX, m_nRealTargetY, G2A(2));
+            m_nMoveToTargetState = eMoveAwayFromTarget;
+        }
+        else
+        {
+            //jazda do punktu o 90stopni
+            nMoveToX = m_nRealTargetX - (nY - m_nRealTargetY);
+            nMoveToY = m_nRealTargetY + (nX - m_nRealTargetX);
+            TRACE4(GetUnitRef(), "AttackingPoint -> MoveAround", nMoveToX, nMoveToY);
+            CallMoveToPoint(nMoveToX, nMoveToY);
+            m_nMoveToTargetState = eMoveAroundTarget;
+        }
+    }
+    return AttackingPoint, 5;
+}
+#endif PLANE_EC
+
+state WaitToEndAttackPoint
+{
+    TRACE2("WaitToEndAttackPoint ", IsOutOfAmmo());
+    ResetAttackTarget();
+    if (!MakeCommandAttackPoint(m_nTargetX, m_nTargetY))
+    {
+        EndCommand(true);
+        return Nothing, 0;
+    }
+    return state;
+}//����������������������������������������������������������������������������������������������������|
+
+#ifdef INFANTRY_EC
+
+state InfantryAttackingPointStopMoving
+{
+    if (IsMoving())
+    {
+        return InfantryAttackingPointStopMoving, 5;
+    }
+    else
+    {
+        if (IsPointInRange(m_nRealTargetX, m_nRealTargetY) == eInRangeGoodHit)
+        {
+            CallAttackPoint(m_nRealTargetX, m_nRealTargetY, 1);
+            return InfantryWaitingToEndAttackPoint, 5;
+        }
+        else
+        {
+            StartMoveToAttackPoint(m_nRealTargetX, m_nRealTargetY);
+            return AttackingPoint, 5;
+        }
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+state InfantryWaitingToEndAttackPoint
+{
+    if (IsAttacking())
+    {
+        return InfantryWaitingToEndAttackPoint, 5;
+    }
+    else
+    {
+        ResetAttackTarget();
+        EndCommand(true);
+        return Nothing, 0;
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+#endif INFANTRY_EC
+
+state AttackingTarget
+{
+    int nInRange, bIsVisible;
+    unit uTarget;
+    int nX, nY, nMoveToX, nMoveToY;
+
+    TRACE1("AttackingTarget");
+    //ponizej nie robimy (m_bAutoTarget || m_bEnemyTarget) ze wzgledu na chaos device
+    if ((m_uTarget == null) || !m_uTarget.IsLive() ||  
+        (!IsEnemy(m_uTarget) && m_bEnemyTarget))
+    {
+        TRACE2("    ->!IsLive/Enemy ", m_uTarget);
+        StopAttacking();
+        if (!m_bAutoTarget)
+        {
+            EndCommand(true);
+        }
+        return EndAttackingTarget, 0;
+    }
+    bIsVisible = IsVisible(m_uTarget);
+    if (!bIsVisible)
+    {
+        if (m_nLastNotVisibleTargetTick == 0)
+        {
+            m_nLastNotVisibleTargetTick = GetWorldTick();
+        }
+        else
+        {
+            if ((GetWorldTick() - m_nLastNotVisibleTargetTick) > eAttackNotVisibleDelayTicks)
+            {
+                TRACE2("    ->!IsVisible ", m_uTarget);
+                StopAttacking();
+                if (!m_bAutoTarget)
+                {
+                    EndCommand(true);
+                }
+                return EndAttackingTarget, 0;
+            }
+        }
+    }
+    else
+    {
+        m_nLastNotVisibleTargetTick = 0;
+    }
+#ifdef PLANE_EC
+    if (PlaneMustReturnToAerodrome())
+    {
+        StopAttacking();
+        if (!m_bAutoTarget)
+        {
+            EndCommand(true);
+        }
+        return Nothing, 0;
+    }
+#endif PLANE_EC
+    if (!m_uTarget.IsStored())
+    {
+        uTarget = m_uTarget.GetObjectContainingObject();
+        if (!uTarget)
+        {
+            StopAttacking();
+            if (!m_bAutoTarget)
+            {
+                EndCommand(true);
+            }
+            return EndAttackingTarget, 0;
+        }
+        AutoSelectBestHeroWeaponForTarget(uTarget);
+        m_uTarget = uTarget;
+        SetAttackTarget(m_uTarget);
+    }
+
+    if (m_bAutoTarget)
+    {
+        if (m_nFindNewTargetCounter <= 0)
+        {
+            m_nFindNewTargetCounter = eFindNewTargetCounter;
+            uTarget = FindBetterTarget(m_uTarget);
+            if (uTarget != null)
+            {
+                AutoSelectBestHeroWeaponForTarget(uTarget);
+                m_uTarget = uTarget;
+                SetAttackTarget(uTarget);
+            }
+        }
+        else
+        {
+            --m_nFindNewTargetCounter;
+        }
+    }
+    nInRange = IsTargetInRange(m_uTarget, m_bAutoTarget);
+    if ((nInRange == eInRangeGoodHit) && bIsVisible)
+    {
+        m_nMoveToTargetState = 0;
+#ifdef INFANTRY_EC
+        if (IsMoving())
+        {
+            if (m_uTarget.IsMoving() && (GetTargetDirectionDiff(m_uTarget) <= 0x50) && (DistanceTo(m_uTarget) >= (GetRangeOfFire() - G2A(3))))
+            {
+                //podjezdzamy jeszcze blizej bo moze ucieka
+                TRACE1("    ->target in range escaping -> moving closer ");
+            }
+            else
+            {
+                TRACE1("    ->target in range -> stop");
+                CallStopMoving();
+            }
+        }
+        else
+        {
+            if (IsEnemy(m_uTarget))
+            {
+                CallAttackTarget(m_uTarget, -1);
+            }
+            else
+            {
+                CallAttackTarget(m_uTarget, 1);
+                return InfantryWaitingToEndAttackTarget, 5;
+            }
+        }
+        return AttackingTarget, 5;
+#else
+        if (IsMoving())
+        {
+            if (m_uTarget.IsMoving() && (GetTargetDirectionDiff(m_uTarget) <= 0x60) && (DistanceTo(m_uTarget) >= (GetRangeOfFire() - G2A(3))))
+            {
+                //podjezdzamy jeszcze blizej bo moze ucieka
+                TRACE1("    ->target in range escaping -> moving closer ");
+            }
+            else
+            {
+                TRACE1("    ->target in range -> stop");
+#ifdef PLANE_EC
+                CallMoveToPoint(m_uTarget.GetLocationX(), m_uTarget.GetLocationY());
+#else
+                CallStopMoving();
+#endif PLANE_EC
+            }
+        }
+        if (IsEnemy(m_uTarget))
+        {
+            AttackTarget(m_uTarget, -1, false);
+            return AttackingTarget, 5;
+        }
+        else
+        {
+            AttackTarget(m_uTarget, 1, false);
+            return WaitToEndAttackTarget, 40;
+        }
+#endif INFANTRY_EC
+    }
+#ifdef INFANTRY_EC
+    else if (nInRange == eInRangeBadAngleAlpha)
+    {
+        if (IsAttacking())
+        {
+            //sam sie obroci
+            return AttackingTarget, 5;
+        }
+        else if (!IsMoving() && IsInAttackingAnimFrame() && (GetRelativeAngleTo(m_uTarget) <= 0x40))
+        {
+            //obroci sie sam
+            if (IsEnemy(m_uTarget))
+            {
+                CallAttackTarget(m_uTarget, -1);
+                return AttackingTarget, 5;
+            }
+            else
+            {
+                CallAttackTarget(m_uTarget, 1);
+                return InfantryWaitingToEndAttackTarget, 5;
+            }
+        }
+    }
+#endif INFANTRY_EC
+    if (IS_IN_ENTRENCHMENT_MODE())
+    {
+        StopAttacking();
+        if (!m_bAutoTarget)
+        {
+            EndCommand(true);
+        }
+        return EndAttackingTarget, 0;
+    }
+    if (nInRange == eInRangeBadAngleAlpha)
+    {
+        if (IsMoving() && (m_nMoveToTargetState == eMoveAwayFromTarget) &&
+            (DistanceTo(m_uTarget) <= 0x100))
+        {
+            //pozwalamy mu odejsc
+            return AttackingTarget, 2;
+        }
+#ifdef PLANE_EC
+        CallMoveToPoint(m_uTarget.GetLocationX(), m_uTarget.GetLocationY());
+#else
+        if (IsMoving() && !IsMovingTurning())
+        {
+            CallStopMoving();
+            m_nMoveToTargetState = eMoveStop;
+        }
+        else
+        {
+            CallTurnToAngle(GetCannonAngleToTarget(m_uTarget));
+            m_nMoveToTargetState = eMoveTurnToTarget;
+        }
+#endif PLANE_EC
+        return AttackingTarget, 2;
+    }
+    if (IsImmobileUnitOrCantMoveInCurrentState())
+    {
+        StopAttacking();
+        if (!m_bAutoTarget)
+        {
+            EndCommand(true);
+        }
+        return EndAttackingTarget, 0;
+    }
+    TRACE1("  ->!InRange");
+    if (m_bAutoTarget)
+    {
+        if ((movementMode == eModeHoldPosition) || IsImmobileUnitOrCantMoveInCurrentState())
+        {
+            TRACE1("    ->holdPos->Stop");
+            StopAttacking();
+            if (IsMoving())
+            {
+#ifdef PLANE_EC
+                CallMoveToPoint(m_uTarget.GetLocationX(), m_uTarget.GetLocationY());
+#else
+                CallStopMoving();
+#endif PLANE_EC
+            }
+            return EndAttackingTarget, 0;
+        }
+        if ((movementMode == eModeHoldArea) && (DistanceTo(m_nHoldPosX, m_nHoldPosY) > G2A(eHoldAreaRange)))
+        {
+            TRACE1("    ->holdArea->Dist>range->Stop");
+            StopAttacking();
+            return EndAttackingTarget, 0;
+        }
+    }
+    if (!IsMoving())
+    {
+        ++m_nMoveToAttackCnt;
+        if (m_nMoveToAttackCnt > 5)
+        {
+            TRACE1("AttackingTarget->(m_nMoveToAttackCnt > 5)->StopAttacking");
+            StopAttacking();
+            if (!m_bAutoTarget)
+            {
+                EndCommand(true);
+            }
+            return EndAttackingTarget, 0;
+        }
+    }
+    else
+    {
+        m_nMoveToAttackCnt = 0;
+    }
+    if (m_nMoveToTargetState == 0)
+    {
+        StartMoveToAttackTarget(m_uTarget, m_bAutoTarget);
+        return AttackingTarget, 5;
+    }
+    m_nTargetX = m_uTarget.GetLocationX();
+    m_nTargetY = m_uTarget.GetLocationY();
+    if (nInRange == eInRangeTooClose)
+    {
+        MoveAwayFromPoint(m_nTargetX, m_nTargetY, G2A(2));
+        m_nMoveToTargetState = eMoveAwayFromTarget;
+        return AttackingTarget, 5;
+    }
+    if ((nInRange == eNotInRange) || 
+        ((m_nMoveToTargetState == eMoveToTarget) && IsMoving()))
+    {
+        m_nMoveToTargetState = eMoveToTarget;
+        CallMoveToPoint(m_nTargetX, m_nTargetY);
+        return AttackingTarget, 5;
+    }
+    if ((m_nMoveToTargetState != eMoveAroundTarget) || !IsMoving())
+    {
+        nX = GetLocationX();
+        nY = GetLocationY();
+        if (((A2G(nX) == A2G(m_nTargetX)) && (A2G(nY) == A2G(m_nTargetY))) ||
+            (DistanceTo(m_nTargetX, m_nTargetY) <= 0x180))
+        {
+            MoveAwayFromPoint(m_nTargetX, m_nTargetY, G2A(2));
+            m_nMoveToTargetState = eMoveAwayFromTarget;
+        }
+        else
+        {
+            //jazda do punktu o 90stopni
+            nMoveToX = m_nTargetX - (nY - m_nTargetY);
+            nMoveToY = m_nTargetY + (nX - m_nTargetX);
+            TRACE4(GetUnitRef(), "AttackingPoint -> MoveAround", nMoveToX, nMoveToY);
+            CallMoveToPoint(nMoveToX, nMoveToY);
+            m_nMoveToTargetState = eMoveAroundTarget;
+        }
+    }
+    if (!m_bNotifiedMusic && (DistanceTo(m_uTarget) < G2A(7)))
+    {
+        m_bNotifiedMusic = true;
+        CheckAttackMusicForTarget(m_uTarget);
+    }
+    return AttackingTarget, 5;
+}//����������������������������������������������������������������������������������������������������|
+
+state WaitToEndAttackTarget
+{
+    ResetAttackTarget();
+    if (!m_bAutoTarget)
+    {
+        EndCommand(true);
+    }
+    return EndAttackingTarget, 0;
+}//����������������������������������������������������������������������������������������������������|
+
+#ifdef INFANTRY_EC
+
+state InfantryWaitingToEndAttackTarget
+{
+    if (IsAttacking())
+    {
+        return InfantryWaitingToEndAttackTarget, 5;
+    }
+    else
+    {
+        ResetAttackTarget();
+        if (!m_bAutoTarget)
+        {
+            EndCommand(true);
+        }
+        return EndAttackingTarget, 0;
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+#endif INFANTRY_EC
+
+state EndAttackingTarget
+{
+    int nDist;
+
+    TRACE1("EndAttackingTarget");
+    if (IS_IN_ENTRENCHMENT_MODE() || IsImmobileUnitOrCantMoveInCurrentState())
+    {
+        m_bIsMovingAndAttack = false;
+        return Nothing, 0;
+    }
+#ifdef PLANE_EC
+    if (m_bOnPatrol)
+    {
+        return PlaneInAttackArea, 0;
+    }
+#endif PLANE_EC
+    if (!m_bAutoTarget)
+    {
+        TRACE1("    ->!Auto->Nothing");
+        m_bIsMovingAndAttack = false;
+        return Nothing, 0;
+    }
+    if (m_bIsMovingAndAttack)
+    {
+        TRACE1("  ->m_bIsMovingAndAttack");
+        //szukamy nowego celu
+        if (FindNothingTarget())//robimy StoreHoldPos
+        {
+            TRACE1("    ->FindNothingTarget");
+            return state, GetStateDelay();//state ustawiony w FindNothingTarget
+        }
+        TRACE1("    ->MovingAndAttack");
+        CallMoveToPoint(m_nMoveToX, m_nMoveToY);
+        return MovingAndAttack, 5;
+    }
+#ifndef PLANE_EC
+    else if (movementMode == eModeHoldArea)
+    {
+        TRACE1("  ->eModeHoldArea");
+        //sprawdzamy czy w poblizu jest inny cel
+        nDist = DistanceTo(m_nHoldPosX, m_nHoldPosY);
+        if (nDist < G2A(eHoldAreaRange/2))
+        {
+            if (FindNothingTarget(false))
+            {
+                TRACE1("    ->FindNothingTarget");
+                return state, GetStateDelay();//state ustawiony w FindNothingTarget
+            }
+        }
+        m_bIsMovingAndAttack = false;
+        if (nDist > eHalfGridSize)
+        {
+            TRACE1("    ->MovingToHoldAreaPos");
+            CallMoveToPoint(m_nHoldPosX, m_nHoldPosY);
+            return MovingToHoldAreaPos, 5;
+        }
+        else
+        {
+            TRACE1("    ->Nothing");
+            return Nothing, 0;
+        }
+    }
+#endif PLANE_EC
+    else
+    {
+        TRACE1("    ->Nothing");
+        m_bIsMovingAndAttack = false;
+        return Nothing, 0;
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+state MovingToHoldAreaPos
+{
+	if (IsMoving() || IsStartingMoving())
+	{
+		TRACE("MovingToHoldAreaPos\n");
+        //sprawdzamy czy w poblizu jest inny cel
+        if (DistanceTo(m_nHoldPosX, m_nHoldPosY) < G2A(eHoldAreaRange - 3))
+        {
+            if (FindNothingTarget(false))
+            {
+                TRACE("   ->AttackingTarget\n");
+                return state, GetStateDelay();//state ustawiony w FindNothingTarget
+            }
+        }
+        return MovingToHoldAreaPos;
+	}
+	else
+	{
+		TRACE("MovingToHoldAreaPos -> Nothing\n");
+        //to bylo z m_bAutoTarget
+		return Nothing, 0;
+	}
+}//����������������������������������������������������������������������������������������������������|
+
+state MovingAndAttack
+{
+	if (IsMoving() || IsStartingMoving())
+	{
+		TRACE("MovingAndAttack\n");
+        //szukamy nowego celu
+        if (FindNothingTarget())//robimy StoreHoldPos
+        {
+            TRACE("   ->AttackingTarget\n");
+            return state, GetStateDelay();//state ustawiony w FindNothingTarget
+        }
+        return MovingAndAttack;
+	}
+	else
+	{
+		TRACE("MovingAndAttack -> Nothing\n");
+        m_bIsMovingAndAttack = false;
+		EndCommand(true);
+		return Nothing, 0;
+	}
+}//����������������������������������������������������������������������������������������������������|
+
+#ifdef PLANE_EC
+state PlaneMovingToAttackArea
+{
+    TRACE("PlaneMovingToAttackArea");
+    if (PlaneMustReturnToAerodrome())
+	{
+        TRACE("PlaneMovingToAttackArea -> Nothing\n");
+        StopPatrol(false);
+		return Nothing, 0;
+    }
+    TRACE("PlaneMovingToAttackArea\n");
+    if (IsPlaneInAttackArea(m_nAttackAreaPosX, m_nAttackAreaPosY))
+    {
+        if (attackMode == eModeHoldFire)
+        {
+            attackMode = eModeFireAtWill;
+            m_bPatrolChangedAttackMode = true;
+        }
+        return PlaneInAttackArea;
+    }
+    if (FindNothingTarget(false))
+    {
+        TRACE("   ->AttackingTarget\n");
+        return state, GetStateDelay();//state ustawiony w FindNothingTarget
+    }
+    return PlaneMovingToAttackArea;
+}
+
+state PlaneInAttackArea
+{
+    TRACE("PlaneInAttackArea\n");
+    
+    if (PlaneMustReturnToAerodrome())
+    {
+        TRACE("PlaneInAttackArea -> Nothing\n");
+        StopPatrol(false);
+        return Nothing;
+    }
+
+    if (FindNothingTarget(false))
+    {
+        TRACE("   ->AttackingTarget\n");
+        return state, GetStateDelay();//state ustawiony w FindNothingTarget
+    }
+
+    return PlaneInAttackArea;
+}
+#endif PLANE_EC
+
+////    Commands    ////
+
+command Attack(unit uTarget) button TRL_ATTACK item ITEM_ATTACK priority PRIOR_ATTACK
+{
+    unit uTarget2, uInside;
+
+    uTarget2 = uTarget;
+    if (!uTarget2.IsLive())
+    {
+        return false;
+    }
+    if (!uTarget2.IsStored())
+    {
+        uInside = uTarget2.GetObjectContainingObject();
+        if (!uInside)
+        {
+            return false;
+        }
+        uTarget2 = uInside;
+    }
+    AutoSelectBestHeroWeaponForTarget(uTarget2);
+    if (!HaveCannonAndCanAttackInCurrentState() || !CanDamageObject(uTarget2) || !uTarget2.IsLive() || (uTarget2 == GetUnitRef()))
+    {
+        return false;
+    }
+    if (uTarget2.IsLandObject())
+    {
+        if (!CanAttackLand())
+        {
+            return false;
+        }
+    }
+    else
+    {
+        if (!CanAttackAir())
+        {
+            return false;
+        }
+    }
+    if ((m_uTarget == uTarget2) && (state == AttackingTarget) && !m_bAutoTarget)
+    {
+        EndCommand(true);
+        return true;
+    }
+#ifdef PLANE_EC
+    if (!HaveEnoughFuelToExecuteCommands() || IsOutOfAmmo())
+    {
+        return false;
+    }
+#endif PLANE_EC
+    CHECK_STOP_CURR_ACTION(eCommandAttack);
+    SetTarget(uTarget2, false);
+    StartMoveToAttackTarget(uTarget2, false);
+    state AttackingTarget;
+    SetStateDelay(0);
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+#ifdef PLANE_EC
+
+// planes do not support MoveAttack command so we add a new one for them
+command AttackPoint(int nX, int nY) button "Attack Point / Send Patrol" item ITEM_PLANEATTACKPOINT priority PRIOR_PLANEATTACKPOINT
+{
+    int bCannotAttackLand;
+    TRACE4("AttackPoint (Plane)", nX, nY, GetUnitRef());
+    bCannotAttackLand = !CanAttackLand();
+
+    if (PlainModeAllowsPatrolling() || bCannotAttackLand)
+    {
+        TRACE2("AttackPoint -> Patrol (patrol mode)", GetUnitRef());
+        return MakePlaneAreaPatrol(nX, nY, bCannotAttackLand);
+    }
+    TRACE2("AttackPoint -> Can attack land", GetUnitRef());
+    m_nAttacksLeft = eMaxAttackPoints;  // eMaxAttackPoints or less, if not enough fuel or ammo
+    return MakeCommandAttackPoint(nX, nY);
+}
+
+command UserOneParam0(int nMode) button patrolMode priority PRIOR_PATROLMODE
+{
+    if (nMode == -1)
+    {
+        patrolMode = (patrolMode + 1) % 2;
+    }
+    else
+    {
+        patrolMode = nMode;
+    }
+    if (patrolMode != ePlaneInPatrol && m_bOnPatrol)
+    {
+        StopPatrol(true);
+    }
+    return true;
+}
+
+command UserOneParam1(int nMode) button attackPointArea priority PRIOR_ACCURACYMODE
+{
+    if (nMode == -1)
+    {
+        attackPointArea = (attackPointArea + 1) % 2;
+    }
+    else
+    {
+        attackPointArea = nMode;
+    }
+    return true;
+}
+
+#endif PLANE_EC
+
+//idziemy do punktu nX,Y a jesli po drodze sa wrogowie to ich atakujemy
+// but in point attack mode, just attack a targetted point on land
+command MoveAttack(int nX, int nY) hidden
+{
+    // no checks if it is a plane because MoveAttack command does not work for planes
+    if (m_bAllowAttackPointViaMoveAttack)
+    {
+        TRACE4("command AttackPoint (MoveAttack)", nX, nY, GetUnitRef());
+        if (!CanAttackLand())
+        {
+            TRACE2("AttackPoint (MoveAttack) -> deny (no land attack)", GetUnitRef());
+            return false;
+        }
+        m_nAttacksLeft = eMaxAttackPoints;  // eMaxAttackPoints or less, if not enough fuel or ammo
+        return MakeCommandAttackPoint(nX, nY);
+    }
+    return MakeCommandMoveAttack(eCommandMoveAttack, nX, nY);
+}
+
+command MoveAttackDblClk(int nX, int nY) hidden
+{
+    return MakeCommandMoveAttack(eCommandMoveAttackDblClk, nX, nY);
+}
+
+command SetAttackMode(int nMode) button extendedAttackMode priority PRIOR_ATTACKMODE
+{
+    int nMaxModes;
+#ifdef PLANE_EC
+    nMaxModes = 2;  // planes have a separate button
+    m_bAllowAttackPointViaMoveAttack = false;
+#else
+    nMaxModes = 3;
+#endif
+    if (nMode == -1)
+    {
+        extendedAttackMode = (extendedAttackMode + 1) % nMaxModes;
+        if (m_bAllowAttackPointViaMoveAttack)
+        {
+            attackMode = eModeFireAtWill;
+        }
+        else
+        {
+            attackMode = (attackMode + 1) % nMaxModes;
+        }
+    }
+    else
+    {
+        extendedAttackMode = nMode;
+        attackMode = nMode;
+    }
+#ifndef PLANE_EC
+    if (extendedAttackMode == eModeAttackPoint)
+    {
+        attackMode = eModeFireAtWill;
+        m_bAllowAttackPointViaMoveAttack = true;
+    }
+    else
+    {
+        m_bAllowAttackPointViaMoveAttack = false;
+    }
+#endif
+    m_bSetHoldFireInCamouflageMode = false;
+#ifndef INFANTRY_EC
+    SetCannonsAutoFire();
+#endif INFANTRY_EC
+    EndCommand(true);
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+#ifndef PLANE_EC
+command SetMovementMode(int nMode) button movementMode priority PRIOR_MOVEMENTMODE
+{
+#ifdef HAVEMOVEMENTMODE
+    if (!HaveCannon() && !HAVEMOVEMENTMODE)
+    {
+        return false;
+    }
+#else
+    if (!HaveCannon())
+    {
+        //moze przyjsc przy zaznaczeniu kilku - nie zmieniamy movementMode dla cywili aby sie im nie ustawilo SetCanBeWithdraw(false)
+        return false;//zeby 
+    }
+#endif
+    if (nMode == -1)
+    {
+        movementMode = (movementMode + 1) % 2;
+    }
+    else
+    {
+        movementMode = nMode;
+    }
+    if (movementMode == eModeHoldPosition)
+    {
+        SetCanBeWithdraw(false);
+    }
+    else
+    {
+        SetCanBeWithdraw(true);
+    }
+    EndCommand(true);
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+#endif !PLANE_EC
+
+#endif ATTACK_ECH

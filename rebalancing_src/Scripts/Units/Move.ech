@@ -1,0 +1,659 @@
+#ifndef MOVE_ECH
+#define MOVE_ECH
+
+////    Declarations    ////
+
+state Moving;
+state MovingToEnterObjectMoveToPos;
+state LandingToEnterObjectMoveToPos;
+state MovingInsideObject;
+state Turning;
+#ifndef INFANTRY_EC
+state HelicopterLanding;
+state HelicopterRaising;
+#endif
+state MovingFPP;
+state TurningFPP;
+
+int m_nStartMoveX;
+int m_nStartMoveY;
+int m_nMoveToX;
+int m_nMoveToY;
+int m_nAlphaAngle;
+unit m_uEnterBuilding;
+
+//eModeAir jest 0 bo przy zaznaczeniu unitow z roznymi stanami przychodzi komenda z mode==0 a przy roznych ustawieniach powinien wystartowac
+consts
+{
+    eModeAir = 0;
+    eModeLand = 1;
+}//����������������������������������������������������������������������������������������������������|
+
+enum landAirMode
+{
+    TRL_LANDAIRMODE_0 item ITEM_LANDAIRMODE_0,
+    TRL_LANDAIRMODE_1 item ITEM_LANDAIRMODE_1,
+multi:
+    TRL_LANDAIRMODE_X item ITEM_LANDAIRMODE_X
+}//����������������������������������������������������������������������������������������������������|
+
+
+////    Functions    ////
+
+function int IsStartingMoving()
+{
+    if (IsPreparingToMove() && !IsWaitingBeforeClosedGate())
+    {
+        return true;
+    }
+    return false;
+}//����������������������������������������������������������������������������������������������������|
+
+function void MoveToPoint(int nX, int nY)
+{
+    TRACE4(GetUnitRef(), "MoveToPoint ", nX, nY);
+    m_nStartMoveX = GetLocationX();
+    m_nStartMoveY = GetLocationY();
+	m_nMoveToX = nX;
+	m_nMoveToY = nY;
+	CallMoveToPoint(m_nMoveToX, m_nMoveToY);
+}//����������������������������������������������������������������������������������������������������|
+
+function void MoveInsideObject(unit uEntrance)
+{
+    int nZ;
+    TRACE2("MoveInsideObject ", GetUnitRef());
+    m_nStartMoveX = GetLocationX();
+    m_nStartMoveY = GetLocationY();
+	GetEnterObjectMoveToPos(uEntrance, m_nMoveToX, m_nMoveToY, nZ);
+    m_uEnterBuilding = uEntrance;
+    CallMoveToPoint(m_nMoveToX, m_nMoveToY);
+}//����������������������������������������������������������������������������������������������������|
+
+function void ResetEnterBuilding()
+{
+    m_uEnterBuilding = null;
+}//����������������������������������������������������������������������������������������������������|
+
+//idzie nDist kratek w kierunku nX,y
+function int MoveInDirectionOfPoint(int nX, int nY, int nDist)
+{
+    int nDx, nDy;
+    int nRx, nRy;
+
+    TurnRadiusByAngle(nDist, AngleTo(nX, nY), nDx, nDy);
+    nRx = GetLocationX() + nDx;
+    nRy = GetLocationY() + nDy;
+    if (IsGoodPlaceOnLandForUnit(nRx, nRy))
+    {
+        MoveToPoint(nRx, nRy);
+        return true;
+    }
+    return false;
+}//����������������������������������������������������������������������������������������������������|
+
+//jw dla obiektu
+function void MoveInDirectionOfObject(unit uTarget, int nDist)
+{
+    int nDx, nDy;
+
+    TurnRadiusByAngle(nDist, AngleTo(uTarget), nDx, nDy);
+    MoveToPoint(GetLocationX() + nDx, GetLocationY() + nDy);
+}//����������������������������������������������������������������������������������������������������|
+
+//idzie nDist kratek w kierunku przeciwnym do nX,y
+function int MoveAwayFromPoint(int nX, int nY, int nDist)
+{
+    int nDx, nDy;
+    int nRx, nRy;
+
+    TRACE5(GetUnitRef(), "MoveAwayFromPoint", nX, nY, nDist);
+    TurnRadiusByAngle(nDist, AngleTo(nX, nY) + 0x80, nDx, nDy);
+    nRx = GetLocationX() + nDx;
+    nRy = GetLocationY() + nDy;
+    if (IsGoodPlaceOnLandForUnit(nRx, nRy))
+    {
+        MoveToPoint(nRx, nRy);
+        return true;
+    }
+    return false;
+}//����������������������������������������������������������������������������������������������������|
+
+function void MoveAwayFromObject(unit uTarget, int nDist)
+{
+    int nDx, nDy;
+
+    TurnRadiusByAngle(nDist, AngleTo(uTarget) + 0x80, nDx, nDy);
+    MoveToPoint(GetLocationX() + nDx, GetLocationY() + nDy);
+}//����������������������������������������������������������������������������������������������������|
+
+function void UpdateLandAirMode()
+{
+#ifdef INFANTRY_EC
+    if (landAirMode == eModeAir)
+    {
+        if (IsLandMove())
+        {
+            //przerwany start
+            landAirMode = eModeLand;
+            ChangedCommandState();
+            TRACE1("landAirMode == eModeAir -> IsLandMove() -> = eModeLand");
+        }
+    }
+    else
+    {
+        ASSERT(landAirMode == eModeLand);
+        if (!IsLandMove())
+        {
+            //przerwane ladowanie
+            landAirMode = eModeAir;
+            ChangedCommandState();
+            TRACE1("landAirMode == eModeLand -> !IsLandMove() -> = eModeAir");
+        }
+    }
+#else
+    if (landAirMode == eModeAir)
+    {
+        if (IsHelicopterOnLand())
+        {
+            //przerwany start
+            landAirMode = eModeLand;
+            ChangedCommandState();
+            TRACE1("landAirMode == eModeAir -> IsHelicopterOnLand() -> = eModeLand");
+        }
+    }
+    else
+    {
+        ASSERT(landAirMode == eModeLand);
+        if (!IsHelicopterOnLand())
+        {
+            //przerwane ladowanie
+            landAirMode = eModeAir;
+            ChangedCommandState();
+            TRACE1("landAirMode == eModeLand -> !IsHelicopterOnLand() -> = eModeAir");
+        }
+    }
+#endif
+}//����������������������������������������������������������������������������������������������������|
+
+////    States    ////
+
+state Moving
+{
+	if (IsMoving() || IsStartingMoving())
+	{
+		TRACE("Moving\n");
+        return Moving;
+	}
+	else
+	{
+		TRACE("Moving -> Nothing\n");
+		EndCommand(true);
+		return Nothing, 0;
+	}
+}//����������������������������������������������������������������������������������������������������|
+
+state MovingToEnterObjectMoveToPos
+{
+    int nZ;
+
+	if (IsMoving() || IsStartingMoving())
+	{
+        TRACE("MovingToEnterObjectMoveToPos\n");
+        return MovingToEnterObjectMoveToPos;
+	}
+	else
+	{
+        if (!CanEnterObject(m_uEnterBuilding))
+        {
+            m_uEnterBuilding = null;
+		    TRACE("MovingToEnterObjectMoveToPos -> Nothing\n");
+		    EndCommand(true);
+		    return Nothing, 0;
+        }
+    	GetEnterObjectMoveToPos(m_uEnterBuilding, m_nMoveToX, m_nMoveToY, nZ);
+        if (IsHelicopterMove())
+        {
+            if ((A2G(m_nMoveToX) != GetLocationGx()) || (A2G(m_nMoveToY) != GetLocationGy()))
+            {
+                MoveInsideObject(m_uEnterBuilding);
+		        return MovingToEnterObjectMoveToPos;
+            }
+            if (IsGoodPlaceOnLandForUnit(GetLocationX(), GetLocationY()))
+            {
+                CallHelicopterSetHeight(nZ);
+                return LandingToEnterObjectMoveToPos;
+            }
+            else
+            {
+                RemoveLandUnitsFromPoint(GetLocationX(), GetLocationY());
+                return MovingToEnterObjectMoveToPos;
+            }
+        }
+        else
+        {
+            if ((A2G(m_nMoveToX) != GetLocationGx()) || (A2G(m_nMoveToY) != GetLocationGy()))
+            {
+                RemoveLandUnitsFromPoint(m_nMoveToX, m_nMoveToY);
+                MoveInsideObject(m_uEnterBuilding);
+		        return MovingToEnterObjectMoveToPos;
+            }
+        }
+        TRACE("MovingToEnterObjectMoveToPos->MovingInsideObject\n");
+        CallMoveInsideObject(m_uEnterBuilding);
+        return MovingInsideObject, 5;
+	}
+}//����������������������������������������������������������������������������������������������������|
+
+state LandingToEnterObjectMoveToPos
+{
+    if (!CanEnterObject(m_uEnterBuilding))
+    {
+        m_uEnterBuilding = null;
+		TRACE("LandingToEnterObjectMoveToPos -> Nothing\n");
+		EndCommand(true);
+        CallMoveToPoint(GetLocationX(), GetLocationY() + G2A(2));//zeby sie podniosl
+		return Nothing, 0;
+    }
+	if (IsMoving() || IsStartingMoving())
+	{
+        if (!IsGoodPlaceOnLandForUnit(GetLocationX(), GetLocationY()))
+        {
+            RemoveLandUnitsFromPoint(GetLocationX(), GetLocationY());
+        }
+        TRACE("LandingToEnterObjectMoveToPos\n");
+        return LandingToEnterObjectMoveToPos;
+	}
+	else
+	{
+        TRACE("MovingToEnterObjectMoveToPos->MovingInsideObject\n");
+        CallMoveInsideObject(m_uEnterBuilding);
+        return MovingInsideObject, 5;
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+state MovingInsideObject
+{
+    if (IsMovingInsideObject())
+    {
+        TRACE("MovingInsideObject\n");
+        return MovingInsideObject, 5;
+    }
+    else
+    {
+		TRACE("MovingInsideObject -> Nothing\n");
+		EndCommand(true);
+		return Nothing, 0;
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+state Turning
+{
+    if (IsMoving() || IsStartingMoving())
+    {
+        return Turning;
+    }
+    else
+    {
+		EndCommand(true);
+		return Nothing, 0;
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+#ifndef INFANTRY_EC
+
+state HelicopterLanding
+{
+    if (IsMoving() || IsStartingMoving())
+    {
+        TRACE1("HelicopterLanding");
+        return HelicopterLanding, 5;
+    }
+    else
+    {
+        if (!IsHelicopterOnLand())
+        {
+            //z jakiegos powodu nie wyladowal
+            landAirMode = eModeAir;
+            ChangedCommandState();
+            TRACE1("HelicopterLanding->landAirMode = eModeAir");
+        }
+        TRACE1("HelicopterLanding->Nothing");
+        EndCommand(true);
+        return Nothing;
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+state HelicopterRaising
+{
+    if (IsMoving() || IsStartingMoving())
+    {
+        TRACE1("HelicopterRaising");
+        return HelicopterRaising, 5;
+    }
+    else
+    {
+        if (IsHelicopterOnLand())
+        {
+            //z jakiegos powodu nie wystartowal
+            landAirMode = eModeLand;
+            ChangedCommandState();
+            TRACE1("HelicopterRaising->landAirMode = eModeLand");
+        }
+        TRACE1("HelicopterRaising->Nothing");
+        EndCommand(true);
+        return Nothing;
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+#endif
+
+state MovingFPP
+{
+    int nDx, nDy, nToX, nToY;
+
+    //idziemy caly czas do przodu dopoki nie dostaniemy nastepnej komendy MoveFPP lub Stop
+    TurnRadiusByAngle(eHalfGridSize, m_nAlphaAngle, nDx, nDy);
+    nToX = GetLocationX() + nDx;
+    nToY = GetLocationY() + nDy;
+    if (IsPointInGameRect(nToX, nToY))
+    {
+        CallMoveToPoint(nToX, nToY);
+        return MovingFPP, 5;
+    }
+    else
+    {
+        CallStopMoving();
+        return Nothing, 0;
+    }
+}//����������������������������������������������������������������������������������������������������|
+
+state TurningFPP
+{
+	if (IsMoving() || IsStartingMoving())
+	{
+		TRACE("TurningFPP\n");
+        return TurningFPP;
+	}
+	else
+	{
+		TRACE("TurningFPP -> Nothing\n");
+		//bez EndCommand
+		return Nothing, 0;
+	}
+}//����������������������������������������������������������������������������������������������������|
+
+////    Events    ////
+
+event OnSetUnitMoveType()
+{
+    UpdateLandAirMode();
+    return;
+}//����������������������������������������������������������������������������������������������������|
+
+////    Commands    ////
+
+#if !defined(PLANE_EC) && !defined(LASERUNIT_EC)
+
+command Stop() button TRL_STOP item ITEM_STOP priority PRIOR_STOP
+{
+    int bRestoreCamouflage;
+
+    if (camouflageMode != 0)
+    {
+        bRestoreCamouflage = true;
+        camouflageMode = 0;//zeby go nie skasowal w ResetCamouflageMode()
+    }
+    //CHECK_STOP_CURR_ACTION:
+#ifdef STOPCURRENTACTION
+	if (!StopCurrentAction(eCommandStop))
+    {
+        if (bRestoreCamouflage)
+        {
+            camouflageMode = 1;
+        }
+        return false;
+    }
+#endif STOPCURRENTACTION
+	if (IsMoving())
+	{
+		CallStopMoving();
+	}
+    if (bRestoreCamouflage)
+    {
+        camouflageMode = 1;
+    }
+    EndCommand(true);
+	state Nothing;
+    SetStateDelay(0);
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+#endif !defined(PLANE_EC) && !defined(LASERUNIT_EC)
+
+function int MakeCommandMove(int nCommand, int nX, int nY)
+{
+    TRACE2("command Move ", GetUnitRef());
+    if (IS_IN_ENTRENCHMENT_MODE())
+    {
+        return false;
+    }
+    CHECK_STOP_CURR_ACTION(nCommand);
+    MoveToPoint(nX, nY);
+	state Moving;
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+command Move(int nX, int nY) hidden
+{
+    return MakeCommandMove(eCommandMove, nX, nY);
+}//����������������������������������������������������������������������������������������������������|
+
+command MoveDblClk(int nX, int nY) hidden
+{
+    return MakeCommandMove(eCommandMoveDblClk, nX, nY);
+}//����������������������������������������������������������������������������������������������������|
+
+//komenda dla latajacego
+command MoveXYZA(int nX, int nY, int nZ, int nAlpha) hidden
+{
+    TRACE2("command MoveXYZA ", GetUnitRef());
+    if (IS_IN_ENTRENCHMENT_MODE())
+    {
+        return false;
+    }
+    CHECK_STOP_CURR_ACTION(eCommandMoveXYZA);
+    if (IsLandMove())
+    {
+        MoveToPoint(nX, nY);
+    }
+    else 
+    {
+        m_nStartMoveX = GetLocationX();
+        m_nStartMoveY = GetLocationY();
+	    m_nMoveToX = nX;
+	    m_nMoveToY = nY;
+        if ((nX != GetLocationX()) || (nY != GetLocationY()))
+        {
+            if (nAlpha != -1)
+            {
+                CallHelicopterFlyToPoint(nX, nY, nZ, nAlpha);
+            }
+            else
+            {
+                CallHelicopterFlyToPoint(nX, nY, nZ);
+            }
+        }
+        else if (nZ != GetLocationZ())
+        {
+            if (nAlpha != -1)
+            {
+                CallHelicopterSetHeight(nZ, nAlpha);
+            }
+            else
+            {
+                CallHelicopterSetHeight(nZ);
+            }
+        }
+        else if (nAlpha != -1)
+        {
+            CallTurnToAngle(nAlpha);
+        }
+        //else nic
+    }
+	state Moving;
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+command Turn(int nAlphaAngle) hidden
+{
+    TRACE2("command Turn ", GetUnitRef());
+    if (IS_IN_ENTRENCHMENT_MODE())
+    {
+        return false;
+    }
+    CHECK_STOP_CURR_ACTION(eCommandTurn);
+    CallTurnToAngle(nAlphaAngle);
+    state Turning;
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+command EnterObject(unit uEntrance) hidden
+{
+    TRACE2("command Enter ", GetUnitRef());
+    if (IS_IN_ENTRENCHMENT_MODE())
+    {
+        return false;
+    }
+    if (!CanEnterObject(uEntrance))
+    {
+        return false;
+    }
+    CHECK_STOP_CURR_ACTION(eCommandEnterObject);
+    MoveInsideObject(uEntrance);
+	state MovingToEnterObjectMoveToPos;
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+#ifndef INFANTRY_EC
+
+command SetLandAirMode(int nMode) button landAirMode priority PRIOR_LANDAIRMODE
+{
+    int nCurrMode;
+    if (!IsTypeHelicopterWithLandMode())
+    {
+        return false;
+    }
+    nCurrMode = landAirMode;//zapamietujemy stan bo moze byc zmieniony w UpdateLandAirMode
+    CHECK_STOP_CURR_ACTION(eCommandSetLandAirMode);
+    landAirMode = nCurrMode;
+    if (nMode == -1)
+    {
+        landAirMode = (landAirMode + 1) % 2;
+    }
+    else
+    {
+        landAirMode = nMode;
+    }
+    if (landAirMode == eModeLand)
+    {//land
+        if (IsHelicopterOnLand())
+        {
+            if (state == HelicopterRaising)
+            {
+                //raising nie mozna przerwac gdy jest jeszcze na ziemi (trwa nieprzerywalna animacja)
+                TRACE1("CommandSetLandAirMode -> eModeLand eModeLand -> eModeAir");
+                landAirMode = eModeAir;
+                EndCommand(true);
+                return true;
+            }
+            else
+            {
+                TRACE1("CommandSetLandAirMode -> 1 1 ->Nothing");
+            }
+            EndCommand(true);
+            state Nothing;
+        }
+        else
+        {
+            TRACE1("CommandSetLandAirMode -> 1 0 ->CallHelicopterLand");
+            CallHelicopterLand();
+            state HelicopterLanding;
+        }
+    }
+    else
+    {//air
+        if (!IsHelicopterOnLand())
+        {
+            if (state == HelicopterLanding)
+            {
+                TRACE1("CommandSetLandAirMode -> 0 0 ->CallStopMoving->Nothing");
+                CallStopMoving();
+            }
+            else
+            {
+                TRACE1("CommandSetLandAirMode -> 0 0 ->Nothing");
+            }
+            EndCommand(true);
+            state Nothing;
+        }
+        else
+        {
+            TRACE1("CommandSetLandAirMode -> 0 1 ->CallHelicopterRaise");
+            CallHelicopterRaise();
+            state HelicopterRaising;
+        }
+    }
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+#endif
+
+//nX,Y - polozenie obiektu w momencie wydania rozkazu
+command MoveFPPInDirection(int nX, int nY, int nAlphaAngle) hidden
+{
+    int nDx, nDy, nToX, nToY;
+    TRACE2("command MoveFPPInDirection ", GetUnitRef());
+    if (IS_IN_ENTRENCHMENT_MODE())
+    {
+        return false;
+    }
+    CHECK_STOP_CURR_ACTION(eCommandMoveFPPInDirection);
+    m_nAlphaAngle = nAlphaAngle;
+    TurnRadiusByAngle(eHalfGridSize, nAlphaAngle, nDx, nDy);
+    nToX = GetLocationX() + nDx;
+    nToY = GetLocationY() + nDy;
+    if (IsPointInGameRect(nToX, nToY))
+    {
+        CallMoveToPoint(nToX, nToY);
+	    state MovingFPP;
+        SetStateDelay(5);
+    }
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+command TurnFPP(int nAlphaAngle) hidden
+{
+    TRACE2("command TurnFPP", GetUnitRef());
+    if (IS_IN_ENTRENCHMENT_MODE())
+    {
+        return false;
+    }
+    CHECK_STOP_CURR_ACTION(eCommandTurnFPP);
+    CallTurnToAngle(nAlphaAngle);
+    state TurningFPP;
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+command StopMovingFPP() hidden
+{
+    TRACE2("command TurnFPP", GetUnitRef());
+    if (state == MovingFPP)
+    {
+        CallStopMoving();
+        state Nothing;
+    }
+    return true;
+}//����������������������������������������������������������������������������������������������������|
+
+#endif MOVE_ECH
