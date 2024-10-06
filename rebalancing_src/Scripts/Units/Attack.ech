@@ -121,8 +121,7 @@ consts
 consts
 {
     ePlaneCanPatrol = 0;
-    ePlaneAttackPointMode = 1;
-    ePlaneInPatrol = 2;
+    ePlaneInPatrol = 1;
 }
 #endif PLANE_EC
 
@@ -156,10 +155,9 @@ multi:
 enum patrolMode
 {
     "Can Patrol" item ITEM_PATROLMODE_ALLOWED,
-    "Attack Point Mode" item ITEM_PATROLMODE_ATTACK_POINT,
     "Stop Patrolling" item ITEM_PATROLMODE_IN_PATROL,
 multi:
-    "Different Patrol Modes" item ITEM_PATROLMODE_X
+    "Stop Patrolling" item ITEM_PATROLMODE_IN_PATROL
 }
 #endif
 
@@ -227,22 +225,6 @@ function void SetPointTarget(int nX, int nY)
 }
 
 #ifdef PLANE_EC
-function int PlainModeAllowsPatrolling()
-{
-    if (patrolMode == ePlaneCanPatrol || patrolMode == ePlaneInPatrol)
-    {
-        return true;
-    }
-    return false;
-}
-
-function void ForcePatrolMode()
-{
-    TRACE1("Force change to patrol mode");
-    patrolMode = ePlaneCanPatrol;
-    ChangedCommandState();
-}
-
 function int IsPlaneInAttackArea(int nAreaPosX, int nAreaPosY)
 {
     int nRangeOfFire;
@@ -320,7 +302,7 @@ function void StopPatrol(int bFullStop)
         m_bOnPatrol = false;
         if (patrolMode == ePlaneInPatrol)
         {
-            patrolMode = ePlaneAttackPointMode;
+            patrolMode = ePlaneCanPatrol;
             ChangedCommandState();
         }
     }
@@ -340,25 +322,13 @@ function void StartPatrol(int nX, int nY)
     state PlaneMovingToAttackArea;
 }
 
-function int MakePlaneAreaPatrol(int nX, int nY, int bChangeModeToPatrol)
+function int MakePlaneAreaPatrol(int nX, int nY)
 {
-    TRACE5("MakePlaneAreaPatrol", nX, nY, bChangeModeToPatrol, GetUnitRef());
+    TRACE4("MakePlaneAreaPatrol", nX, nY, GetUnitRef());
     if (PlaneMustReturnToAerodrome())
     {
         TRACE2(" -> Cannot do", GetUnitRef());
         return false;
-    }
-    if (!PlainModeAllowsPatrolling())
-    {
-        if (bChangeModeToPatrol)
-        {
-            ForcePatrolMode();
-        }
-        else
-        {
-            TRACE2(" -> Not in patrol mode", GetUnitRef());
-            return false;
-        }
     }
 
     CHECK_STOP_CURR_ACTION(eCommandMove);
@@ -373,7 +343,7 @@ function int BackToPlaneAreaPatrol()
         return false;
     }
 
-    return MakePlaneAreaPatrol(m_nAttackAreaPosX, m_nAttackAreaPosY, false);
+    return MakePlaneAreaPatrol(m_nAttackAreaPosX, m_nAttackAreaPosY);
 }
 #endif PLANE_EC
 
@@ -938,16 +908,6 @@ function int MakeCommandMoveAttack(int nCommand, int nX, int nY)
         TRACE2("command MoveAttack, no fuel or out of ammo", GetUnitRef());
         return false;
     }
-    if (GetCannonType() == eBomb)
-    {
-        CHECK_STOP_CURR_ACTION(nCommand);
-	    SetPointTarget(nX, nY);
-        StartMoveToAttackPoint(nX, nY);
-        m_nMoveToAttackCnt = 0;
-        state AttackingPoint;
-        SetStateDelay(0);
-        return true;
-    }
 #endif PLANE_EC
     if ((state == AttackingTarget) && m_bAutoTarget)
     {
@@ -1111,95 +1071,8 @@ state AttackingPoint
 #ifdef PLANE_EC
 state AttackingPoint
 {
-    int nInRange;
-    int nX, nY, nMoveToX, nMoveToY, nShots;
-
-    if (PlaneMustReturnToAerodrome())
-    {
-        StopAttacking();
-        EndCommand(true);
-        return Nothing, 0;
-    }
-    nShots = 10;  // some of plains cannot use there potential while doing single shots
-
-    nInRange = IsPointInRange(m_nRealTargetX, m_nRealTargetY);
-    if (nInRange == eInRangeGoodHit)
-    {
-        CallMoveToPoint(m_nRealTargetX, m_nRealTargetY);
-        AttackPoint(m_nRealTargetX, m_nRealTargetY, nShots);
-        return WaitToEndAttackPoint, 80;
-    }
-    if (nInRange == eInRangeBadAngleAlpha)
-    {
-        TRACE1("eInRangeBadAngleAlpha");
-        if (IsMoving() && (m_nMoveToTargetState == eMoveAwayFromTarget) &&
-            (DistanceTo(m_nRealTargetX, m_nRealTargetY) <= 0x100))
-        {
-            TRACE1(" Let go");
-            //pozwalamy mu odejsc
-            return AttackingPoint, 2;
-        }
-        TRACE1(" !way");
-        CallMoveToPoint(m_nRealTargetX, m_nRealTargetY);
-        return AttackingPoint, 2;
-    }
-    if (IsImmobileUnitOrCantMoveInCurrentState())
-    {
-        EndCommand(true);
-        return Nothing, 0;
-    }
-    if (!IsMoving())
-    {
-        ++m_nMoveToAttackCnt;
-        if (m_nMoveToAttackCnt > 5)
-        {
-            TRACE1("AttackingPoint->(m_nMoveToAttackCnt > 5)->Nothing");
-            StopAttacking();
-            EndCommand(true);
-            return Nothing, 0;
-        }
-    }
-    else
-    {
-        m_nMoveToAttackCnt = 0;
-    }
-    if (nInRange == eInRangeTooClose)
-    {
-        MoveAwayFromPoint(m_nRealTargetX, m_nRealTargetY, G2A(2));
-        m_nMoveToTargetState = eMoveAwayFromTarget;
-        return AttackingPoint, 5;
-    }
-    if ((m_nMoveToTargetState == eMoveToTarget) && IsMoving())
-    {
-        return AttackingPoint, 5;
-    }
-    if (nInRange == eNotInRange)
-    {
-        m_nMoveToTargetState = eMoveToTarget;
-        CallMoveToPoint(m_nRealTargetX, m_nRealTargetY);
-        return AttackingPoint, 5;
-    }
-    if ((m_nMoveToTargetState != eMoveAroundTarget) || !IsMoving())
-    {
-        nX = GetLocationX();
-        nY = GetLocationY();
-        if (((A2G(nX) == A2G(m_nRealTargetX)) && (A2G(nY) == A2G(m_nRealTargetY))) ||
-            (DistanceTo(m_nRealTargetX, m_nRealTargetY) <= 0x180))
-        {
-            MoveAwayFromPoint(m_nRealTargetX, m_nRealTargetY, G2A(2));
-            m_nMoveToTargetState = eMoveAwayFromTarget;
-        }
-        else
-        {
-            //jazda do punktu o 90stopni
-            nMoveToX = m_nRealTargetX - (nY - m_nRealTargetY);
-            nMoveToY = m_nRealTargetY + (nX - m_nRealTargetX);
-            TRACE4(GetUnitRef(), "AttackingPoint -> MoveAround", nMoveToX, nMoveToY);
-            CallMoveToPoint(nMoveToX, nMoveToY);
-            m_nMoveToTargetState = eMoveAroundTarget;
-        }
-    }
-    return AttackingPoint, 5;
+    // Not implemented for planes
+    return Nothing, 0;
 }
 #endif PLANE_EC
 
@@ -1548,7 +1421,7 @@ state AttackingTarget
             //jazda do punktu o 90stopni
             nMoveToX = m_nTargetX - (nY - m_nTargetY);
             nMoveToY = m_nTargetY + (nX - m_nTargetX);
-            TRACE4(GetUnitRef(), "AttackingPoint -> MoveAround", nMoveToX, nMoveToY);
+            TRACE4(GetUnitRef(), "AttackingTarget -> MoveAround", nMoveToX, nMoveToY);
             CallMoveToPoint(nMoveToX, nMoveToY);
             m_nMoveToTargetState = eMoveAroundTarget;
         }
@@ -1819,27 +1692,20 @@ command Attack(unit uTarget) button TRL_ATTACK item ITEM_ATTACK priority PRIOR_A
 #ifdef PLANE_EC
 
 // planes do not support MoveAttack command so we add a new one for them
-command AttackPoint(int nX, int nY) button "Attack Point / Send Patrol" item ITEM_PLANEATTACKPOINT priority PRIOR_PLANEATTACKPOINT
+command AttackPoint(int nX, int nY) button "Send Patrol" item ITEM_PLANEATTACKPOINT priority PRIOR_PLANEATTACKPOINT
 {
     int bCannotAttackLand;
-    TRACE4("AttackPoint (Plane)", nX, nY, GetUnitRef());
-    bCannotAttackLand = !CanAttackLand();
-
-    if (PlainModeAllowsPatrolling() || bCannotAttackLand)
-    {
-        TRACE2("AttackPoint -> Patrol (patrol mode)", GetUnitRef());
-        return MakePlaneAreaPatrol(nX, nY, bCannotAttackLand);
-    }
-    TRACE2("AttackPoint -> Can attack land", GetUnitRef());
-    m_nAttacksLeft = eMaxAttackPoints;  // eMaxAttackPoints or less, if not enough fuel or ammo
-    return MakeCommandAttackPoint(nX, nY);
+    TRACE2("AttackPoint -> Patrol", GetUnitRef());
+    return MakePlaneAreaPatrol(nX, nY);
 }
 
 command UserOneParam0(int nMode) button patrolMode priority PRIOR_PATROLMODE
 {
     if (nMode == -1)
     {
-        patrolMode = (patrolMode + 1) % 2;
+        if (patrolMode == ePlaneInPatrol) {
+            patrolMode = ePlaneCanPatrol;
+        }
     }
     else
     {
@@ -1848,19 +1714,6 @@ command UserOneParam0(int nMode) button patrolMode priority PRIOR_PATROLMODE
     if (patrolMode != ePlaneInPatrol && m_bOnPatrol)
     {
         StopPatrol(true);
-    }
-    return true;
-}
-
-command UserOneParam1(int nMode) button attackPointArea priority PRIOR_ACCURACYMODE
-{
-    if (nMode == -1)
-    {
-        attackPointArea = (attackPointArea + 1) % 2;
-    }
-    else
-    {
-        attackPointArea = nMode;
     }
     return true;
 }
@@ -1926,6 +1779,12 @@ command SetAttackMode(int nMode) button extendedAttackMode priority PRIOR_ATTACK
     else
     {
         m_bAllowAttackPointViaMoveAttack = false;
+    }
+#else
+    if (extendedAttackMode == eModeAttackPoint)
+    {
+        extendedAttackMode = eModeFireAtWill;
+        attackMode = eModeFireAtWill;
     }
 #endif
     m_bSetHoldFireInCamouflageMode = false;
