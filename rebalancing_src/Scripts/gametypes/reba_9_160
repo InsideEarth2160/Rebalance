@@ -1,0 +1,895 @@
+# 0 "main.c"
+# 0 "<built-in>"
+# 0 "<command-line>"
+# 1 "/usr/include/stdc-predef.h" 1 3 4
+# 0 "<command-line>" 2
+# 1 "main.c"
+
+
+
+
+
+
+# 1 "defines.h" 1
+# 8 "main.c" 2
+
+mission "TestRebalancing 9.160" {
+  int nMaxNumberOfPlayer;
+  int nTeamSize;
+  int nPlayerState[];
+  int nPlayerResSpeedCnt[];
+  int nTeam[];
+  int bGameStarted;
+  int nSecondsSinceLastWeatherChange;
+  int nSecondsNextWeatherChange;
+  int nCurrentWeather;
+  int nMoneyTime;
+
+# 1 "common.h" 1
+consts {
+  eRaceUCS = 1;
+  eRaceED = 2;
+  eRaceLC = 3;
+  eRaceAlien = 4;
+  eEnemy = 0;
+  eNeutral = 1;
+}
+
+consts {
+  cDefeated = 1;
+  cObserver = 2;
+  cAlive = 3;
+  cNone = 4;
+}
+
+function void addMoneyByDepotCount(player pPlayer, int nMoney) {
+  int nBuildings;
+  nBuildings = 0;
+
+  if ((pPlayer == null) || !pPlayer.IsAlive()) {
+    return;
+  }
+
+  if (pPlayer.GetRace() == eRaceUCS) {
+    nBuildings = pPlayer.GetNumberOfBuildings("U_BL_SI_14");
+    nMoney = nMoney * nBuildings;
+    pPlayer.AddResource(1, nMoney);
+    pPlayer.AddResource(0, nMoney);
+  } else if (pPlayer.GetRace() == eRaceED) {
+    nBuildings = pPlayer.GetNumberOfBuildings("E_BL_ST_05");
+    nMoney = nMoney * nBuildings;
+    pPlayer.AddResource(1, nMoney);
+    pPlayer.AddResource(2, nMoney);
+  } else if (pPlayer.GetRace() == eRaceLC) {
+    nBuildings = pPlayer.GetNumberOfBuildings("L_BL_ST_09");
+    nMoney = nMoney * nBuildings;
+    pPlayer.AddResource(2, nMoney);
+    pPlayer.AddResource(0, nMoney);
+  }
+}
+
+function void InitPlayerUCS(player pPlayer, int bDynamicConn, int nX, int nY) {
+  pPlayer.AddResource(1, 5000);
+  pPlayer.AddObjectTemplate(
+      "U_CH_AH_10_1#U_AR_CL_10_1,U_EN_NO_10_1,U_IE_SG_01_1");
+  pPlayer.AddObjectTemplate("U_CH_AR_08_1#U_IE_SG_01_1");
+  pPlayer.AddObjectTemplate("U_CH_AJ_01_1#U_WP_CH_01_0,U_AR_CL_01_1,U_EN_SP_01_"
+                            "1,U_IE_SG_01_1");
+  pPlayer.AddObjectTemplate("U_CH_GJ_02_1#U_WP_CH_02_1,U_AR_CL_02_1,U_EN_SP_02_"
+                            "1,U_IE_SG_01_1");
+  pPlayer.AddObjectTemplate("U_CH_GT_03_1#U_WP_CH_03_1,U_AR_CL_03_1,U_EN_SP_03_"
+                            "1,U_IE_SG_01_1,U_IE_SG_01_1");
+  pPlayer.AddObjectTemplate("U_CH_GT_03_1#U_WP_AR_03_1,U_AR_CL_03_1,U_EN_SP_03_"
+                            "1,U_IE_SG_01_1,U_IE_SG_01_1");
+  pPlayer.AddObjectTemplate("U_CH_GT_04_1#U_WP_AR_04_1,U_AR_CL_04_1,U_EN_SP_04_"
+                            "1,U_IE_SG_04_1,U_IE_SG_04_1");
+  pPlayer.AddObjectTemplate("U_CH_GT_05_1#U_WP_PB_05_1,U_WP_PB2_05_1,U_AR_CL_"
+                            "05_1,U_EN_SP_05_1,U_IE_SG_04_1,U_IE_SG_04_1");
+  pPlayer.AddObjectTemplate("U_CH_SR_04_1#U_WP_PL_SR_01_1,U_AR_CL_"
+                            "05_1S,U_EN_SP_04_1S,U_EE_SH_12_1,U_IE_SG_04_1S");
+  pPlayer.AddObjectTemplate(
+      "U_CH_AA_06_1#U_WP_PL_06_1,U_AR_CL_06_1,U_EN_SP_06_1,U_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "U_CH_GA_07_1#U_WP_PL_07_1,U_AR_CL_07_1,U_EN_SP_07_1,U_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "U_CH_AB_12_1#U_WP_PB_12_1,U_AR_CL_12_1,U_EN_SP_12_1,U_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "U_CH_AB_12_1#U_WP_PB_13_1,U_AR_CL_12_1,U_EN_SP_12_1,U_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "U_CH_GS_11_1#U_AR_CL_11_1,U_EN_SP_11_1,U_EE_IR_11_1,U_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "U_CH_GS_11_1#U_AR_CL_11_1,U_EN_SP_11_1,U_EE_SH_11_1,U_IE_SG_01_1");
+
+  pPlayer.CreateObject("U_IN_SC_01_1", nX, nY, 0, 0);
+  pPlayer.CreateObject("U_IN_SC_01_1", nX, nY - 1, 0, 0);
+  pPlayer.CreateObject("U_IN_SC_01_1", nX, nY + 1, 0, 0);
+  pPlayer.CreateObject("U_CH_AR_08_1", nX, nY, 0, 0);
+  pPlayer.CreateObject("U_CH_AH_10_1#U_AR_CL_10_1,U_EN_NO_10_1", nX - 1, nY, 0,
+                       0);
+  pPlayer.CreateObject("U_CH_AH_10_1#U_AR_CL_10_1,U_EN_NO_10_1", nX - 2, nY, 0,
+                       0);
+  pPlayer.CreateObject("U_CH_AH_10_1#U_AR_CL_10_1,U_EN_NO_10_1", nX - 3, nY, 0,
+                       0);
+}
+
+function void InitPlayerED(player pPlayer, int bDynamicConn, int nX, int nY) {
+  pPlayer.AddResource(2, 5000);
+
+  pPlayer.AddObjectTemplate("E_CH_AH_12#E_AR_CL_12_1,E_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "E_CH_AJ_01_1#E_WP_SL_01_0,E_AR_CL_01_1,E_EN_SP_01_1,E_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "E_CH_GJ_02_1#E_WP_SL_02_1,E_AR_CL_02_1,E_EN_SP_02_1,E_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "E_CH_GJ_03_1#E_WP_SL_03_1,E_AR_CL_03_1,E_EN_SP_03_1,E_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "E_CH_GJ_03_1#E_WP_AR_03_1,E_AR_CL_03_1,E_EN_SP_03_1,E_IE_SG_01_1");
+  pPlayer.AddObjectTemplate("E_CH_GT_04_1#E_WP_CA_04_1,E_AR_CL_04_1,E_EN_SP_04_"
+                            "1,E_IE_SG_04_1,E_IE_SG_04_1");
+  pPlayer.AddObjectTemplate("E_CH_GT_04_1#E_WP_HL_04_1,E_AR_CL_04_1,E_EN_SP_04_"
+                            "1,E_IE_SG_04_1,E_IE_SG_04_1");
+  pPlayer.AddObjectTemplate("E_CH_GT_05_1#E_WP_CA_05_1,E_AR_CL_05_1,E_EN_SP_05_"
+                            "1,E_IE_SG_04_1,E_IE_SG_04_1");
+  pPlayer.AddObjectTemplate("E_CH_GT_06_1#E_WP_CA_06_1,E_WP_CA2_06_1,E_AR_CL_"
+                            "06_1,E_EN_SP_06_1,E_IE_SG_04_1,E_IE_SG_04_1");
+  pPlayer.AddObjectTemplate(
+      "E_CH_AA_07_1#E_WP_GR_07_1,E_AR_CL_07_1,E_EN_SP_07_1,E_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "E_CH_GA_08_1#E_WP_EQ_08_1,E_AR_CL_08_1,E_EN_SP_08_1,E_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "E_CH_AF_11_1#E_WP_GB_11_1,E_AR_CL_11_1,E_EN_SP_11_1,E_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "E_CH_GS_10_1#E_AR_CL_10_1,E_EN_SP_10_1,E_EE_DR_10_1,E_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "E_CH_GS_10_1#E_AR_CL_10_1,E_EN_SP_10_1,E_EE_JA_10_1,E_IE_SG_01_1");
+  pPlayer.AddObjectTemplate("E_CH_TR_09_1#E_IE_SG_01_1");
+  pPlayer.AddObjectTemplate("E_CH_AR_13_1#E_IE_SG_01_1");
+
+  pPlayer.CreateObject("E_CH_AH_12#E_AR_CL_12_1", nX, nY + 1, 0, 0);
+  pPlayer.CreateObject("E_CH_AH_12#E_AR_CL_12_1", nX, nY - 1, 0, 0);
+  pPlayer.CreateObject("E_IN_SC_04_1", nX, nY, 0, 0);
+  pPlayer.CreateObject("E_IN_SC_04_1", nX, nY + 1, 0, 0);
+  pPlayer.CreateObject("E_IN_SC_04_1", nX, nY - 1, 0, 0);
+}
+
+function void InitPlayerLC(player pPlayer, int bDynamicConn, int nX, int nY) {
+  pPlayer.AddResource(0, 5000);
+
+  pPlayer.AddObjectTemplate(
+      "L_CH_AJ_01_1#L_WP_SG_01_0,L_AR_CL_01_1,L_EN_SP_01_1,L_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "L_CH_GJ_02_1#L_WP_SG_02_1,L_AR_CL_02_1,L_EN_SP_02_1,L_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "L_CH_GJ_02_1#L_WP_AA_02_1,L_AR_CL_02_1,L_EN_SP_02_1,L_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "L_CH_AT_03_1#L_WP_SB_03_1,L_AR_CL_03_1,L_EN_SP_03_1,L_IE_SG_01_1");
+  pPlayer.AddObjectTemplate("L_CH_GT_04_1#L_WP_MP_04_1,L_AR_CL_04_1,L_EN_SP_"
+                            "04_1,L_IE_SG_04_1,L_IE_SG_04_1");
+  pPlayer.AddObjectTemplate("L_CH_GT_05_1#L_WP_MP_05_1#L_WP_MP2_05_1,L_AR_CL_"
+                            "05_1,L_EN_SP_05_1,L_IE_SG_04_1,L_IE_SG_04_1");
+  pPlayer.AddObjectTemplate(
+      "L_CH_GT_06_1#L_WP_MP_06_1,L_WP_MP2_06_1,L_WP_MP2_06_1,L_AR_CL_06_1,L_"
+      "EN_SP_06_1,L_IE_SG_04_1,L_IE_SG_04_1");
+  pPlayer.AddObjectTemplate(
+      "L_CH_AA_07_1#L_WP_PC_07_1,L_AR_CL_07_1,L_EN_SP_07_1,L_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "L_CH_GA_08_1#L_WP_PC_08_1,L_AR_CL_08_1,L_EN_SP_08_1,L_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "L_CH_AF_11_1#L_WP_SAM_11_1,L_AR_CL_11_1,L_EN_SP_11_1,L_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "L_CH_AB_12_1#L_WP_PB_12_1,L_AR_CL_12_1,L_EN_NO_12_1,L_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "L_CH_GS_10_1#L_AR_CL_10_1,L_EN_SP_10_1,L_EE_AN_10_1,L_IE_SG_01_1");
+  pPlayer.AddObjectTemplate(
+      "L_CH_GS_10_1#L_AR_CL_10_1,L_EN_SP_10_1,L_EE_RE_10_1,L_IE_SG_01_1");
+
+  pPlayer.CreateObject("L_IN_SC_03_1", nX, nY, 0, 0);
+  pPlayer.CreateObject("L_IN_SC_03_1", nX - 1, nY, 0, 0);
+  pPlayer.CreateObject("L_IN_SC_03_1", nX + 1, nY, 0, 0);
+}
+
+function void InitPlayerAlien(player pPlayer, int bDynamicConn, int nX,
+                              int nY) {
+  pPlayer.CreateObject("A_CH_NU_01_1", nX - 2, nY + 2, 0, 0);
+  pPlayer.CreateObject("A_CH_NU_01_1", nX + 2, nY - 2, 0, 0);
+  pPlayer.CreateObject("A_CH_NU_01_1", nX + 2, nY + 2, 0, 0);
+  pPlayer.CreateObject("A_CH_NU_01_1", nX - 2, nY - 2, 0, 0);
+  pPlayer.CreateObject("A_IN_CMW_01_2", nX - 1, nY, 0, 0);
+  pPlayer.CreateObject("A_IN_CMW_01_2", nX + 1, nY, 0, 0);
+  pPlayer.CreateObject("A_IN_CMW_01_2", nX, nY, 0, 0);
+  pPlayer.CreateObject("A_CH_CMW_AF_12_2", nX, nY, 0, 0);
+}
+
+function void DisableBuildingsForPlayer(player pPlayer) {
+  pPlayer.EnableBuilding("L_BL_BA_01", false);
+  pPlayer.EnableBuilding("L_BL_PP_02", false);
+  pPlayer.EnableBuilding("L_BL_UF_03", false);
+  pPlayer.EnableBuilding("L_BL_IF_04", false);
+  pPlayer.EnableBuilding("L_BL_RC_05", false);
+  pPlayer.EnableBuilding("L_BL_CA_06", false);
+  pPlayer.EnableBuilding("L_BL_UW_07", false);
+  pPlayer.EnableBuilding("L_BL_AR_08", false);
+  pPlayer.EnableBuilding("L_BL_ST_09", false);
+  pPlayer.EnableBuilding("L_BL_MI_10", false);
+  pPlayer.EnableBuilding("L_BL_WA_11", false);
+  pPlayer.EnableBuilding("L_BL_WC_12_1", false);
+  pPlayer.EnableBuilding("L_BL_WC_12_2", false);
+  pPlayer.EnableBuilding("L_BL_WC_12_3", false);
+  pPlayer.EnableBuilding("L_BL_WC_12_4", false);
+  pPlayer.EnableBuilding("L_BL_TW_13", false);
+  pPlayer.EnableBuilding("L_BL_BARD_19", false);
+  pPlayer.EnableBuilding("L_BL_LA_14", false);
+  pPlayer.EnableBuilding("L_BL_LA_15", false);
+  pPlayer.EnableBuilding("L_BL_LA_16", false);
+  pPlayer.EnableBuilding("L_BL_LA_17", false);
+  pPlayer.EnableBuilding("L_BL_LA_18", false);
+  pPlayer.EnableBuilding("U_BL_PP_01", false);
+  pPlayer.EnableBuilding("U_BL_PR_02", false);
+  pPlayer.EnableBuilding("U_BL_CM_03", false);
+  pPlayer.EnableBuilding("U_BL_TR_04", false);
+  pPlayer.EnableBuilding("U_BL_FA_05_1", false);
+  pPlayer.EnableBuilding("U_BL_FA_05_2", false);
+  pPlayer.EnableBuilding("U_BL_IF_06_1", false);
+  pPlayer.EnableBuilding("U_BL_IF_06_2", false);
+  pPlayer.EnableBuilding("U_BL_IF_06_3", false);
+  pPlayer.EnableBuilding("U_BL_UF_07_1", false);
+  pPlayer.EnableBuilding("U_BL_UF_07_2", false);
+  pPlayer.EnableBuilding("U_BL_UF_07_3", false);
+  pPlayer.EnableBuilding("U_BL_AR_08", false);
+  pPlayer.EnableBuilding("U_BL_TM_10", false);
+  pPlayer.EnableBuilding("U_BL_BT_11", false);
+  pPlayer.EnableBuilding("U_BL_TE_12", false);
+  pPlayer.EnableBuilding("U_BL_RE_13", false);
+  pPlayer.EnableBuilding("U_BL_SI_14", false);
+  pPlayer.EnableBuilding("U_BL_LZ_20", false);
+  pPlayer.EnableBuilding("U_BL_SG_21", false);
+  pPlayer.EnableBuilding("U_BL_CC_22", false);
+  pPlayer.EnableBuilding("U_BL_TW_15", false);
+  pPlayer.EnableBuilding("U_BL_BU_16", false);
+  pPlayer.EnableBuilding("U_BL_BU_16_2", false);
+  pPlayer.EnableBuilding("U_BL_ST_17", false);
+  pPlayer.EnableBuilding("U_BL_HT_18", false);
+  pPlayer.EnableBuilding("U_BL_WA_19", false);
+  pPlayer.EnableBuilding("U_BL_WA_19_2", false);
+  pPlayer.EnableBuilding("U_BL_WA_19_3", false);
+  pPlayer.EnableBuilding("U_BL_WA_19_4", false);
+  pPlayer.EnableBuilding("U_BL_WA_19_5", false);
+  pPlayer.EnableBuilding("U_BL_WA_19_6", false);
+  pPlayer.EnableBuilding("U_BL_WA_19_7", false);
+  pPlayer.EnableBuilding("U_BL_WA_19_8", false);
+  pPlayer.EnableBuilding("E_BL_CC_01", false);
+}
+
+function void RemoveAllPlayerBuildings(player pPlayer) {
+  unit buildings[];
+  int nIndex, nCount, nGx, nGy;
+  unit building;
+
+  if (pPlayer == null) {
+    return;
+  }
+
+  buildings.Create(0);
+  nCount = pPlayer.GetNumberOfBuildings();
+  for (nIndex = 0; nIndex < nCount; ++nIndex) {
+    building = pPlayer.GetBuilding(nIndex);
+    if (building.IsLive()) {
+      buildings.Add(building);
+    }
+  }
+
+  nCount = buildings.GetSize();
+  for (nIndex = 0; nIndex < nCount; ++nIndex) {
+    building = buildings[nIndex];
+    building.RemoveObject();
+  }
+}
+
+function void RemoveAllPlayerUnits(player pPlayer) {
+  unit auUnits[];
+  int nIndex, nCount, nGx, nGy;
+  unit uUnit;
+
+  if (pPlayer == null) {
+    return;
+  }
+
+  auUnits.Create(0);
+  nCount = pPlayer.GetNumberOfUnits();
+  for (nIndex = 0; nIndex < nCount; ++nIndex) {
+    uUnit = pPlayer.GetUnit(nIndex);
+    if (!uUnit.IsStored() || !uUnit.IsLive()) {
+      continue;
+    }
+    auUnits.Add(uUnit);
+  }
+  nCount = auUnits.GetSize();
+  for (nIndex = 0; nIndex < nCount; ++nIndex) {
+    uUnit = auUnits[nIndex];
+    uUnit.RemoveObject();
+  }
+}
+
+function int HasSurrender(int nPlayer) {
+  int bSurrender;
+  player pPlayer;
+  int nPlayerOther;
+  player pPlayerOther;
+
+  pPlayer = GetPlayer(nPlayer);
+  if (pPlayer == null || nPlayerState[nPlayer] != cAlive) {
+    return false;
+  }
+
+  bSurrender = true;
+  for (nPlayerOther = 1; nPlayerOther <= nMaxNumberOfPlayer; ++nPlayerOther) {
+    pPlayerOther = GetPlayer(nPlayerOther);
+    if ((pPlayerOther != null) && nPlayerState[nPlayerOther] == cAlive &&
+        nPlayerOther != nPlayer) {
+      if (!pPlayer.IsNeutral(pPlayerOther)) {
+        bSurrender = false;
+      }
+    }
+  }
+
+  return bSurrender;
+}
+
+function void MakePlayerToObserver(int nPlayer, int newState) {
+  player pPlayer;
+  player pPlayer2;
+  int nPlayer2;
+
+  pPlayer = GetPlayer(nPlayer);
+
+  if (pPlayer != null) {
+    nPlayerState[nPlayer] = newState;
+
+
+
+    for (nPlayer2 = 1; nPlayer2 <= nMaxNumberOfPlayer; ++nPlayer2) {
+      pPlayer2 = GetPlayer(nPlayer2);
+      if ((pPlayer2 != null) && nPlayerState[nPlayer2] == cAlive) {
+        pPlayer.SetEnemy(pPlayer2);
+      }
+    }
+
+    pPlayer.ResetFogInArea(0, 0, 2000000000);
+    RemoveAllPlayerBuildings(pPlayer);
+    RemoveAllPlayerUnits(pPlayer);
+    DisableBuildingsForPlayer(pPlayer);
+
+    for (nPlayer2 = 1; nPlayer2 <= nMaxNumberOfPlayer; ++nPlayer2) {
+      pPlayer2 = GetPlayer(nPlayer2);
+      if ((pPlayer2 != null) && nPlayerState[nPlayer2] == cAlive) {
+        pPlayer.SetNeutral(pPlayer2);
+        pPlayer2.SetAlly(pPlayer);
+      }
+    }
+  }
+}
+
+function int WasDefeated(int nPlayer) {
+  player pPlayer;
+
+  pPlayer = GetPlayer(nPlayer);
+
+  if (pPlayer == null) {
+    return false;
+  }
+
+  if (nPlayerState[nPlayer] == cDefeated) {
+    return true;
+  }
+
+  if (nPlayerState[nPlayer] == cAlive) {
+    if (pPlayer.GetNumberOfTransformationCopulas() == 0 &&
+        pPlayer.GetRace() == eRaceAlien && pPlayer.GetNumberOfUnits() == 0) {
+      return true;
+    } else if (pPlayer.GetNumberOfUnits() == 0 &&
+               pPlayer.GetNumberOfBuildings() == 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+# 22 "main.c" 2
+
+  state Initialize;
+  state Start;
+
+  state Clock;
+  int nClockTime;
+
+  enum comboObserver {
+    "No Observer",
+    "From Pos. 3",
+    "From Pos. 4",
+    "From Pos. 5",
+    "From Pos. 6",
+    "From Pos. 7",
+    "From Pos. 8",
+    multi : "Observer Options"
+  }
+
+  enum comboTeam {
+    "No Teams",
+    "Team by 2",
+    "Team by 3",
+    "Team by 4",
+    multi : "Team Options"
+  }
+
+  enum comboResources {
+    "Default",
+    "+25%",
+    "+50%",
+    "+75%",
+    "+100%",
+    "+150%",
+    "+200%",
+    "+300%",
+    "+500%",
+    "+1000%",
+    multi : "Resources Field Size"
+  }
+
+  enum comboWeather {
+    "Enabled",
+    "Disabled",
+    multi : "Weather"
+  }
+
+  enum comboSpecialOption {
+    "Disabled",
+    "Blocking Clock",
+    "Testing",
+    "Testing + Blocking Clock",
+    multi : "Special Options"
+  }
+
+  command
+  Combo1(int nMode) button comboObserver {
+    comboObserver = nMode;
+    return true;
+  }
+
+  command Combo2(int nMode) button comboTeam {
+    comboTeam = nMode;
+    return true;
+  }
+
+  command Combo3(int nMode) button comboResources {
+    comboResources = nMode;
+    return true;
+  }
+
+  command Combo4(int nMode) button comboWeather {
+    comboWeather = nMode;
+    return true;
+  }
+
+  command Combo5(int nMode) button comboSpecialOption {
+    comboSpecialOption = nMode;
+    return true;
+  }
+
+  function void InitPlayer(player pPlayer, int bDynamicConn, int nNo) {
+    int nX, nY;
+
+    GetStartingPoint(pPlayer.GetIFFNum(), nX, nY);
+    pPlayer.LookAt(nX, nY, 500, 0, 20);
+
+    pPlayer.SetPlayerResourceStorageSize(0, 9999999);
+    pPlayer.SetPlayerResourceStorageSize(1, 9999999);
+    pPlayer.SetPlayerResourceStorageSize(2, 9999999);
+
+    if (comboSpecialOption > 1) {
+      pPlayer.SetResearchTimeMultiplyPercent(5);
+      pPlayer.SetResearchPriceMultiplyPercent(5);
+      pPlayer.SetBuildBuildingsTimeMultiplyPercent(5);
+      pPlayer.SetBuildBuildingsPriceMultiplyPercent(5);
+      pPlayer.SetPlayerMaxUnitLimitSize(999999);
+      pPlayer.SetPlayerResourceStorageSize(0, 9999999);
+      pPlayer.SetPlayerResourceStorageSize(1, 9999999);
+      pPlayer.SetPlayerResourceStorageSize(2, 9999999);
+      pPlayer.AddResource(0, 9999999);
+      pPlayer.AddResource(1, 9999999);
+      pPlayer.AddResource(2, 9999999);
+      pPlayer.ResetFogInArea(0, 0, 2000000000);
+    } else {
+      pPlayer.SetResearchTimeMultiplyPercent(100);
+    }
+
+    if (pPlayer.GetRace() == eRaceUCS)
+    {
+      InitPlayerUCS(pPlayer, bDynamicConn, nX, nY);
+    }
+    if (pPlayer.GetRace() == eRaceED)
+    {
+      InitPlayerED(pPlayer, bDynamicConn, nX, nY);
+    }
+    if (pPlayer.GetRace() == eRaceLC)
+    {
+      InitPlayerLC(pPlayer, bDynamicConn, nX, nY);
+    }
+    if (pPlayer.GetRace() == eRaceAlien) {
+      InitPlayerAlien(pPlayer, bDynamicConn, nX, nY);
+    }
+    pPlayer.SetMaxAgentsInPlayerCount(0);
+    pPlayer.SetSendENResults(false);
+  }
+
+  state Initialize {
+    int nPlayer;
+    player pPlayer;
+    int nTeamNumber;
+    int i;
+
+    bGameStarted = false;
+    SetTimer(0, 90);
+
+    nTeam.Create(8 + 1);
+    nPlayerState.Create(8 + 1);
+    nPlayerResSpeedCnt.Create(8 + 1);
+
+
+    if (comboResources == 0) {
+      MultiplyPassiveResourcesSize(100);
+    } else if (comboResources == 1) {
+      MultiplyPassiveResourcesSize(125);
+    } else if (comboResources == 2) {
+      MultiplyPassiveResourcesSize(150);
+    } else if (comboResources == 3) {
+      MultiplyPassiveResourcesSize(175);
+    } else if (comboResources == 4) {
+      MultiplyPassiveResourcesSize(200);
+    } else if (comboResources == 5) {
+      MultiplyPassiveResourcesSize(250);
+    } else if (comboResources == 6) {
+      MultiplyPassiveResourcesSize(300);
+    } else if (comboResources == 7) {
+      MultiplyPassiveResourcesSize(400);
+    } else if (comboResources == 8) {
+      MultiplyPassiveResourcesSize(600);
+    } else if (comboResources == 9) {
+      MultiplyPassiveResourcesSize(1100);
+    }
+
+    nMaxNumberOfPlayer = 8;
+    for (i = 1; i < 7; ++i) {
+      if (comboObserver == i) {
+        nMaxNumberOfPlayer = i + 1;
+      }
+    }
+
+    if (comboTeam == 0) {
+      nTeamSize = 1;
+    } else if (comboTeam == 1) {
+      nTeamSize = 2;
+    } else if (comboTeam == 2) {
+      nTeamSize = 3;
+    } else if (comboTeam == 3) {
+      nTeamSize = 4;
+    }
+
+
+    for (nPlayer = 1; nPlayer <= nMaxNumberOfPlayer; ++nPlayer) {
+      pPlayer = GetPlayer(nPlayer);
+      if ((pPlayer != null) && pPlayer.IsAlive() &&
+          HaveStartingPoint(nPlayer)) {
+        InitPlayer(pPlayer, false, nPlayer);
+        nPlayerState[nPlayer] = cAlive;
+        nPlayerResSpeedCnt[nPlayer] = 0;
+        pPlayer.AddMapSign(150, 150, 1, 50000);
+        pPlayer.PlayWave("Sound\\ping.mp3");
+      } else {
+        nPlayerState[nPlayer] = cNone;
+      }
+    }
+
+
+    for (nPlayer = nMaxNumberOfPlayer + 1; nPlayer <= 8; ++nPlayer) {
+      pPlayer = GetPlayer(nPlayer);
+      if ((pPlayer != null)) {
+        nPlayerState[nPlayer] = cObserver;
+        pPlayer.SetSendENResults(false);
+      } else {
+        nPlayerState[nPlayer] = cNone;
+      }
+    }
+
+
+
+
+    nTeamNumber = 1;
+    i = 0;
+    for (nPlayer = 1; nPlayer <= nMaxNumberOfPlayer; ++nPlayer) {
+      pPlayer = GetPlayer(nPlayer);
+
+      if (i >= nTeamSize) {
+        i = 0;
+        nTeamNumber = nTeamNumber + 1;
+      }
+
+      if ((pPlayer != null) && pPlayer.IsAlive() &&
+          HaveStartingPoint(nPlayer)) {
+        nTeam[nPlayer] = nTeamNumber;
+      } else {
+        nTeam[nPlayer] = 0;
+      }
+      ++i;
+    }
+
+    SetInterfaceOptions(eShowStatisticsOnExitSkirmish | 0);
+    nClockTime = 0;
+    nMoneyTime = 0;
+    return Start, 30;
+  }
+
+
+  state Clock {
+    string sNum;
+    int bBlocking;
+    int i;
+    player pPlayer;
+    int nBuildings;
+
+    ++nMoneyTime;
+
+    if (nMoneyTime >= 5) {
+      nMoneyTime = 0;
+      for (i = 0; i <= nMaxNumberOfPlayer; ++i) {
+        pPlayer = GetPlayer(i);
+        if ((pPlayer != null) && pPlayer.IsAlive()) {
+          addMoneyByDepotCount(pPlayer, 10);
+        }
+      }
+    }
+
+    ++nSecondsSinceLastWeatherChange;
+    if (nSecondsSinceLastWeatherChange >= nSecondsNextWeatherChange &&
+        comboWeather != 2) {
+      nSecondsSinceLastWeatherChange = 0;
+      nSecondsNextWeatherChange = 20 + Rand(160);
+      nCurrentWeather = 1 + Rand(5);
+
+      if (nCurrentWeather == 1) {
+        SetSnow(Rand(255));
+        SetWind(Rand(100), Rand(255));
+      } else if (nCurrentWeather == 2) {
+        SetWind(Rand(100), Rand(255));
+        SetRain(Rand(255));
+      } else {
+        nSecondsNextWeatherChange = nSecondsNextWeatherChange + 180;
+        SetWind(0, 0);
+        SetRain(0);
+        SetSnow(0);
+      }
+    }
+
+    ++nClockTime;
+    if (comboSpecialOption == 1 || comboSpecialOption == 3) {
+      bBlocking = true;
+    } else {
+      bBlocking = false;
+    }
+
+    sNum.Format("%02d:%02d", nClockTime / 60, nClockTime % 60);
+
+    SetConsoleText(sNum, 180, bBlocking);
+    return Clock, 30;
+  }
+
+  state Start {
+    player pPlayer;
+    int nPlayer;
+    player pPlayerOther;
+    int nPlayerOther;
+    string sDebugOutput;
+
+    sDebugOutput.Format("ResearchTime: %03d, ResearchCost %03d", 100,
+                        100);
+
+  //  SetConsole2Text(sDebugOutput);
+
+
+    for (nPlayer = 1; nPlayer <= nMaxNumberOfPlayer; ++nPlayer) {
+      pPlayer = GetPlayer(nPlayer);
+      if ((pPlayer != null) && pPlayer.IsAlive() &&
+          HaveStartingPoint(nPlayer)) {
+        for (nPlayerOther = 1; nPlayerOther <= nMaxNumberOfPlayer;
+             ++nPlayerOther) {
+          pPlayerOther = GetPlayer(nPlayerOther);
+          if ((pPlayerOther != null) && pPlayerOther.IsAlive() &&
+              HaveStartingPoint(nPlayerOther)) {
+            if (nPlayer != nPlayerOther &&
+                nTeam[nPlayer] == nTeam[nPlayerOther]) {
+
+              pPlayer.SetAllowedAllyIFF(nTeam[nPlayer]);
+              pPlayerOther.SetAllowedAllyIFF(nTeam[nPlayer]);
+              pPlayer.SetAlly(pPlayerOther);
+              pPlayerOther.SetAlly(pPlayer);
+            } else if (nTeam[nPlayer] != nTeam[nPlayerOther]) {
+              pPlayer.SetEnemy(pPlayerOther);
+            }
+          }
+        }
+      }
+    }
+
+
+    for (nPlayer = nMaxNumberOfPlayer + 1; nPlayer <= 8; ++nPlayer) {
+      pPlayer = GetPlayer(nPlayer);
+      if ((pPlayer != null) && nPlayerState[nPlayer] == cObserver) {
+        pPlayer.SetShowInStatistics(false);
+        MakePlayerToObserver(nPlayer, cObserver);
+      }
+    }
+
+    bGameStarted = true;
+    nSecondsSinceLastWeatherChange = 0;
+    nSecondsNextWeatherChange = 30;
+
+    return Clock, 30;
+  }
+# 372 "main.c"
+  function void updateResearchSpeed(unit uBuilding, int bAddedBuilding) {
+    int nIFF;
+    string sName;
+    player pPlayer;
+    int nResearchSpeed;
+    int nResearchCost;
+    int bFlag;
+    int i;
+    string sDebugOutput;
+
+    nIFF = uBuilding.GetIFFNum();
+    pPlayer = GetPlayer(nIFF);
+
+    sName = uBuilding.GetObjectIDName();
+    nResearchSpeed = 100;
+    nResearchCost = 100;
+    bFlag = false;
+
+    if (pPlayer == null) {
+      return;
+    }
+
+    if (sName.Compare("U_BL_SI_14") == 0) {
+      bFlag = true;
+    } else if (sName.Compare("E_BL_AC_08") == 0) {
+      bFlag = true;
+    } else if (sName.Compare("L_BL_ATU_1") == 0) {
+      bFlag = true;
+    }
+
+    if (bFlag && comboSpecialOption <= 1) {
+      if (bAddedBuilding) {
+        nPlayerResSpeedCnt[nIFF] = nPlayerResSpeedCnt[nIFF] + 1;
+      } else {
+        nPlayerResSpeedCnt[nIFF] = nPlayerResSpeedCnt[nIFF] - 1;
+      }
+
+      nResearchCost =
+          nResearchCost + nPlayerResSpeedCnt[nIFF] * 10;
+      nResearchSpeed = nResearchSpeed -
+                       nPlayerResSpeedCnt[nIFF] * 10;
+
+      if (nResearchCost > (100 + ((100 - 10) / 10) * 10)) {
+        nResearchCost = (100 + ((100 - 10) / 10) * 10);
+      }
+
+      if (nResearchSpeed < 10) {
+        nResearchSpeed = 10;
+      }
+
+      pPlayer.SetResearchTimeMultiplyPercent(nResearchSpeed);
+      pPlayer.SetResearchPriceMultiplyPercent(nResearchCost);
+
+     // sDebugOutput.Format("ResearchTime: %03d, ResearchCost %03d", nResearchSpeed, nResearchCost);
+
+      SetConsole2Text(sDebugOutput);
+    }
+  }
+
+  event AddedBuilding(unit uBuilding, int nNumber) {
+    updateResearchSpeed(uBuilding, true);
+  }
+
+  event RemovedBuilding(unit uBuilding, unit uUnit, int nNumber) {
+    updateResearchSpeed(uBuilding, false);
+  }
+
+  event PreLoadGame() {
+    bGameStarted = false;
+    LoadCustomParameters("Parameters\\TestRebalancing9.160.par");
+  }
+
+  event Timer0() {
+    player pPlayer, pPlayer2;
+    int nPlayer, nPlayer2;
+    int bKilled;
+    int aliveTeamCount;
+    int currentTeamNumber;
+    int bSurrender;
+
+    if (!bGameStarted) {
+      return;
+    }
+
+
+    for (nPlayer = 1; nPlayer <= nMaxNumberOfPlayer; ++nPlayer) {
+      bKilled = WasDefeated(nPlayer);
+
+
+      if (bKilled && nPlayerState[nPlayer] == cAlive) {
+        pPlayer = GetPlayer(nPlayer);
+
+        MakePlayerToObserver(nPlayer, cDefeated);
+      }
+    }
+
+
+    aliveTeamCount = 0;
+    currentTeamNumber = 0;
+    for (nPlayer = 1; nPlayer <= nMaxNumberOfPlayer; ++nPlayer) {
+      pPlayer = GetPlayer(nPlayer);
+      if ((pPlayer != null) && nPlayerState[nPlayer] == cAlive) {
+        if (nTeam[nPlayer] != currentTeamNumber) {
+          currentTeamNumber = nTeam[nPlayer];
+          ++aliveTeamCount;
+        }
+      }
+    }
+
+
+    if (aliveTeamCount < 2) {
+      for (nPlayer = 1; nPlayer <= 8; ++nPlayer) {
+        pPlayer = GetPlayer(nPlayer);
+        if (pPlayer != null) {
+          if (nPlayerState[nPlayer] == cAlive ||
+              nPlayerState[nPlayer] == cObserver ||
+              nTeam[nPlayer] == currentTeamNumber) {
+            pPlayer.GameVictory(false, true);
+          } else {
+            pPlayer.GameDefeat(true);
+          }
+        }
+      }
+    }
+
+
+    for (nPlayer = 1; nPlayer <= nMaxNumberOfPlayer; ++nPlayer) {
+      if (HasSurrender(nPlayer)) {
+        MakePlayerToObserver(nPlayer, cDefeated);
+      }
+    }
+  }
+
+  event KilledNetworkPlayer(int nPlayer) {
+    player pPlayer;
+    pPlayer = GetPlayer(nPlayer);
+
+    if (pPlayer != null && nPlayerState[nPlayer] == cAlive) {
+      RemoveAllPlayerUnits(pPlayer);
+      RemoveAllPlayerBuildings(pPlayer);
+      nPlayerState[nPlayer] = cDefeated;
+    }
+  }
+
+  command Initialize() {
+    comboObserver = 0;
+    comboTeam = 0;
+    comboResources = 0;
+    comboWeather = 0;
+    return true;
+  }
+
+  command Uninitialize() { return true; }
+  event RemoveUnits() { return true; }
+  event UseExtraSkirmishPlayers() { return false; }
+  event SpecialLevelFlags() { return 0x01; }
+  event AIPlayerFlags() { return 0x0F; }
+}
