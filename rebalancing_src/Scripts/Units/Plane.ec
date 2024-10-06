@@ -168,6 +168,18 @@ command SetAirport(unit uAirport) hidden
     return true;
 }//����������������������������������������������������������������������������������������������������|
 
+// Set an airport if the plane isn't assigned to any airport yet
+command UserObject0(unit uAirport) hidden
+{
+    if (HaveAirport())
+    {
+        return true;
+    }
+
+    CommandSetAirport(uAirport);
+    return true;
+}
+
 command Initialize()
 {
     if (GetUnitRef())
