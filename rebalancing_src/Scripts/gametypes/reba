@@ -13,7 +13,7 @@
 # 1 "defines.h" 1
 # 8 "main.c" 2
 
-mission "TestRebalancing 9.160" {
+mission "TestRebalancing 9.161" {
   int nMaxNumberOfPlayer;
   int nTeamSize;
   int nPlayerState[];
@@ -735,6 +735,46 @@ function int WasDefeated(int nPlayer) {
     return Clock, 30;
   }
 # 372 "main.c"
+  function void setAerodromeToFreePlanes(unit uBuilding) {
+    int nIFF;
+    string sName;
+    player pPlayer;
+    int bIsAerodrome;
+    int nIndex, nCount;
+    unit uUnit;
+
+    bIsAerodrome = false;
+    sName = uBuilding.GetObjectIDName();
+    if (sName.Compare("U_BL_AR_08") == 0) {
+      bIsAerodrome = true;
+    }
+    if (sName.Compare("E_BL_AR_11") == 0) {
+      bIsAerodrome = true;
+    }
+    if (sName.Compare("L_BL_AR_08") == 0) {
+      bIsAerodrome = true;
+    }
+
+    if (!bIsAerodrome) {
+      return;
+    }
+
+    nIFF = uBuilding.GetIFFNum();
+    pPlayer = GetPlayer(nIFF);
+    if (pPlayer == null) {
+      return;
+    }
+    
+    nCount = pPlayer.GetNumberOfUnits();
+    for (nIndex = 0; nIndex < nCount; ++nIndex) {
+      uUnit = pPlayer.GetUnit(nIndex);
+      if (uUnit.IsStored() && uUnit.IsLive() && uUnit.IsPlaneMove()) {
+        // set airport if not assigned to the plane yet
+        uUnit.CommandUserObject0(uBuilding);
+      }
+    }
+  }
+
   function void updateResearchSpeed(unit uBuilding, int bAddedBuilding) {
     int nIFF;
     string sName;
@@ -796,6 +836,7 @@ function int WasDefeated(int nPlayer) {
 
   event AddedBuilding(unit uBuilding, int nNumber) {
     updateResearchSpeed(uBuilding, true);
+    setAerodromeToFreePlanes(uBuilding);
   }
 
   event RemovedBuilding(unit uBuilding, unit uUnit, int nNumber) {
