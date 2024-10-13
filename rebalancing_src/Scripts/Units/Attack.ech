@@ -183,7 +183,7 @@ function void CalculateRealTarget(int nX, int nY)
     int maxRandom, curRandomGx, curRandomGy;
     int bPlusSignX, bPlusSignY;
 
-    if (attackPointArea != 1)
+    if (accuracyMode != 1)
     {
         maxRandom = 0x200;  // G2A(2)
     }
