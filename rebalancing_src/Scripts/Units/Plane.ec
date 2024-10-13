@@ -1,5 +1,4 @@
 #define PLANE_EC
-
 #include "Translates.ech"
 #include "Items.ech"
 
@@ -49,6 +48,7 @@ function int FlyToAirportSlot()
         if (GetAirportSlotPos(nX, nY, nZ))
         {
             TRACE4("FlyToAirportSlot", nX, nY, nZ);
+            //TRACE1("FlyToAirportSlot, SetAllowPlaneStop(true)");
             SetAllowPlaneStop(true);
             CallHelicopterFlyToPoint(nX, nY, nZ);
             uAirport = GetAirport();
@@ -124,6 +124,7 @@ state FlyingToAirportSlot
     else
     {
         TRACE1("FlyingToAirportSlot->Nothing");
+        //TRACE1("plane FlyingToAirportSlot, SetAllowPlaneStop(false)");
         SetAllowPlaneStop(false);
         EndCommand(true);
         return Nothing;
@@ -152,10 +153,30 @@ event Timer()
 
 command SetAirport(unit uAirport) hidden
 {
+    int bHaveAirport;
+    int bNeedFlyToAirport;
+
+    TRACE3("SetAirport command", GetAirport(), uAirport);
+
     CHECK_STOP_CURR_ACTION(eCommandSetAirport);
-    if ((SetPlaneAirport(uAirport) || HaveAirport()) && FlyToAirportSlot())
+    bHaveAirport = HaveAirport();
+    if (bHaveAirport)
     {
-        // explicitly set an airport, do not return on patrol after reaching an airport
+        TRACE1("SetAirport command, HaveAirport");
+        if (GetAirport() == uAirport)
+        {
+            TRACE1("SetAirport command, Same Airport, do nothing");
+        }
+        bNeedFlyToAirport = false;
+    }
+    else
+    {
+        TRACE2("SetAirport command, call SetPlaneAirport", uAirport);
+        bNeedFlyToAirport = SetPlaneAirport(uAirport);
+    }
+    if (bNeedFlyToAirport && FlyToAirportSlot())
+    {
+        // airport was explicitly set, do not return on patrol after reaching an airport
         StopPatrol(true);
         state FlyingToAirportSlot;
         SetStateDelay(0);
@@ -168,10 +189,23 @@ command SetAirport(unit uAirport) hidden
     return true;
 }//����������������������������������������������������������������������������������������������������|
 
+command Stop() button "Stop attack" item ITEM_STOP priority PRIOR_STOP
+{
+    CHECK_STOP_CURR_ACTION(eCommandStop);
+    if (OnPatrol())
+    {
+        return BackToPlaneAreaPatrol();
+    }
+    EndCommand(true);
+	state Nothing;
+    SetStateDelay(0);
+    return true;
+}
+
 // Set an airport if the plane isn't assigned to any airport yet
 command UserObject0(unit uAirport) hidden
 {
-    if (HaveAirport())
+    if (GetAirport())
     {
         return true;
     }

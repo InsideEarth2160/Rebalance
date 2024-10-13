@@ -175,6 +175,11 @@ function void ResetAttackTarget()
 
 function void CalculateRealTarget(int nX, int nY)
 {
+#ifdef PLANE_EC
+    // just a stub, this function is never called for planes anyway
+    m_nRealTargetX = nX;
+    m_nRealTargetY = nY;
+#else
     int maxRandom, curRandomGx, curRandomGy;
     int bPlusSignX, bPlusSignY;
 
@@ -213,7 +218,7 @@ function void CalculateRealTarget(int nX, int nY)
     {
         m_nRealTargetY = nY - G2A(curRandomGy);
     }
-
+#endif PLANE_EC
     TRACE3("Real target X,Y ", m_nRealTargetX, m_nRealTargetY);
 }
 
@@ -325,12 +330,6 @@ function void StartPatrol(int nX, int nY)
 function int MakePlaneAreaPatrol(int nX, int nY)
 {
     TRACE4("MakePlaneAreaPatrol", nX, nY, GetUnitRef());
-    if (PlaneMustReturnToAerodrome())
-    {
-        TRACE2(" -> Cannot do", GetUnitRef());
-        return false;
-    }
-
     CHECK_STOP_CURR_ACTION(eCommandMove);
     StartPatrol(nX, nY);
     return true;
@@ -344,6 +343,11 @@ function int BackToPlaneAreaPatrol()
     }
 
     return MakePlaneAreaPatrol(m_nAttackAreaPosX, m_nAttackAreaPosY);
+}
+
+function int OnPatrol()
+{
+    return m_bOnPatrol;
 }
 #endif PLANE_EC
 
@@ -1478,7 +1482,8 @@ state EndAttackingTarget
 #ifdef PLANE_EC
     if (m_bOnPatrol)
     {
-        return PlaneInAttackArea, 0;
+        BackToPlaneAreaPatrol();
+        return state, 0;
     }
 #endif PLANE_EC
     if (!m_bAutoTarget)
@@ -1680,6 +1685,7 @@ command Attack(unit uTarget) button TRL_ATTACK item ITEM_ATTACK priority PRIOR_A
     {
         return false;
     }
+    StopPatrol(false);
 #endif PLANE_EC
     CHECK_STOP_CURR_ACTION(eCommandAttack);
     SetTarget(uTarget2, false);
