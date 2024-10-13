@@ -1642,6 +1642,12 @@ command Attack(unit uTarget) button TRL_ATTACK item ITEM_ATTACK priority PRIOR_A
 {
     unit uTarget2, uInside;
 
+    if (StartFollowing(uTarget))
+    {
+        TRACE1("Attack -> no, we follow!");
+        return false;
+    }
+
     uTarget2 = uTarget;
     if (!uTarget2.IsLive())
     {

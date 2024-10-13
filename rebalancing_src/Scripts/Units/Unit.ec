@@ -1,5 +1,7 @@
 #define UNIT_EC
 
+#define USE_TRACE
+
 #include "Translates.ech"
 #include "Items.ech"
 
@@ -21,6 +23,7 @@ function int StopCurrentAction(int nCommand);
 #include "Lights.ech"
 #include "Move.ech"
 #include "Special.ech"
+#include "Follow.ech"
 #include "Attack.ech"
 #include "Crew.ech"
 #include "Events.ech"
@@ -33,14 +36,14 @@ function int StopCurrentAction(int nCommand)
     ResetCamouflageMode();
     StopCurrentActionAttacking();
 	return true;
-}//————————————————————————————————————————————————————————————————————————————————————————————————————|
+}
 
 ////    States    ////
 
 state Initialize
 {
     return Nothing;
-}//————————————————————————————————————————————————————————————————————————————————————————————————————|
+}
 
 state Nothing
 {
@@ -52,7 +55,7 @@ state Nothing
         }
         //else state ustawiony w NothingAttack
     }
-}//————————————————————————————————————————————————————————————————————————————————————————————————————|
+}
 
 ////    Commands    ////
 
@@ -67,9 +70,10 @@ command Initialize()
         {
             SetTimer(20);//uzywany tylko do CheckArmedState
         }
+        initFollow(eHoldAreaRange);
     }
     return true;
-}//————————————————————————————————————————————————————————————————————————————————————————————————————|
+}
 
 command Uninitialize()
 {
@@ -79,5 +83,5 @@ command Uninitialize()
         ResetAttackTarget();
     }
     return true;
-}//————————————————————————————————————————————————————————————————————————————————————————————————————|
+}
 }
