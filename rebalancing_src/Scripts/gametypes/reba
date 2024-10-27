@@ -845,7 +845,7 @@ function int WasDefeated(int nPlayer) {
 
   event PreLoadGame() {
     bGameStarted = false;
-    LoadCustomParameters("Parameters\\TestRebalancing9.160.par");
+    LoadCustomParameters("Parameters\\TestRebalancing9.161.par");
   }
 
   event Timer0() {
