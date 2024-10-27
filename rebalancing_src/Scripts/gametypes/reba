@@ -13,7 +13,7 @@
 # 1 "defines.h" 1
 # 8 "main.c" 2
 
-mission "TestRebalancing 9.161" {
+mission "TestRebalancing 9.162" {
   int nMaxNumberOfPlayer;
   int nTeamSize;
   int nPlayerState[];
@@ -845,7 +845,7 @@ function int WasDefeated(int nPlayer) {
 
   event PreLoadGame() {
     bGameStarted = false;
-    LoadCustomParameters("Parameters\\TestRebalancing9.161.par");
+    LoadCustomParameters("Parameters\\TestRebalancing9.162.par");
   }
 
   event Timer0() {
