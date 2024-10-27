@@ -1,0 +1,153 @@
+#ifndef FOLLOW_ECH
+#define FOLLOW_ECH
+
+#include "Common.ech"
+
+////    Declarations    ////
+
+state FollowingTarget;
+state Nothing;
+function void StopFollowing();
+
+unit m_uLeader;
+int m_nMinHoldAreaRange, m_nMaxHoldAreaRange;
+
+consts
+{
+    eFollowMode_DoNot = 0;
+    eFollowMode_Do = 1;
+}
+
+enum followMode
+{
+	"Don't Follow" item ITEM_ENERGYDISPERSEMODE_0,
+	"Follow" item ITEM_ENERGYDISPERSEMODE_1,
+multi:
+	"Mixed" item ITEM_ENERGYDISPERSEMODE_X
+}
+
+function void initFollow(int nHoldAreaRange)
+{
+    m_uLeader = null;
+    m_nMinHoldAreaRange = MAX(GetRangeOfFire(), nHoldAreaRange) / 2;
+    m_nMaxHoldAreaRange = MAX(GetRangeOfFire(), nHoldAreaRange) / 3;
+}
+
+function int StartFollowing(unit uTarget)
+{
+    TRACE2("StartFollowing", uTarget);
+    if (followMode != eFollowMode_Do)
+    {
+        TRACE1("StartFollowing: not ready");
+        return false;
+    }
+    if (IsEnemy(uTarget))
+    {
+        TRACE1("StartFollowing: target IsEnemy()");
+        return false;
+    }
+    if (!uTarget.IsLive())
+    {
+        TRACE1("StartFollowing: target not IsLive()");
+        return false;
+    }
+
+    if (m_uLeader)
+    {
+        StopFollowing();
+    }
+
+    m_uLeader = uTarget;
+    state FollowingTarget;
+    SetStateDelay(0);
+    return true;
+}
+
+function int ContinueFollowing()
+{
+    TRACE2("ContinueFollowing", m_uLeader);
+    if (!m_uLeader)
+    {
+        TRACE1("ContinueFollowing: no target");
+        return false;
+    }
+
+    state FollowingTarget;
+    SetStateDelay(0);
+    return true;
+}
+
+function void StopFollowing()
+{
+    TRACE2("StopFollowing ", m_uLeader);
+    m_uLeader = null;
+}
+
+function void ComeCloser()
+{   TRACE3("ComeCloser to ", m_uLeader.GetLocationX(), m_uLeader.GetLocationY());
+    MoveToPoint(m_uLeader.GetLocationX(), m_uLeader.GetLocationY());
+}
+
+function void ComeAwayAbit()
+{
+    int nAngle;
+    int nNewX, nNewY;
+
+    nAngle = GetRelativeAngleTo(m_uLeader);
+    TRACE2("ComeAwayAbit, relative angle: ", nAngle);
+}
+
+state FollowingTarget
+{
+    int nDistance;
+
+    if (!m_uLeader)
+    {
+        return Nothing, 0;
+    }
+
+    if (!m_uLeader.IsLive())
+    {
+        return Nothing, 0;
+    }
+
+    // target stopped
+    // target moving in / out
+
+    nDistance = DistanceTo(m_uLeader);
+    if (nDistance > m_nMaxHoldAreaRange)
+    {
+        ComeCloser();
+    }
+    else if (nDistance < m_nMinHoldAreaRange)
+    {
+        ComeAwayAbit();
+    }
+    else
+    {
+        CallStopMoving();
+    }
+
+    return FollowingTarget, 20;
+}
+
+command UserOneParam1(int nMode) button followMode priority PRIOR_FOLLOWMODE
+{
+    if (nMode == -1)
+	{
+		followMode = (followMode + 1) % 2;
+	}
+	else
+	{
+		followMode = nMode;
+	}
+    if (followMode == eFollowMode_DoNot)
+    {
+        StopFollowing();
+        state Nothing;
+        SetStateDelay(0);
+    }
+    return true;
+}
+
+#endif FOLLOW_ECH

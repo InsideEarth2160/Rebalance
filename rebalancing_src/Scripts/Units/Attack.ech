@@ -183,7 +183,7 @@ function void CalculateRealTarget(int nX, int nY)
     int maxRandom, curRandomGx, curRandomGy;
     int bPlusSignX, bPlusSignY;
 
-    if (attackPointArea != 1)
+    if (accuracyMode != 1)
     {
         maxRandom = 0x200;  // G2A(2)
     }
@@ -1641,6 +1641,12 @@ state PlaneInAttackArea
 command Attack(unit uTarget) button TRL_ATTACK item ITEM_ATTACK priority PRIOR_ATTACK
 {
     unit uTarget2, uInside;
+
+    if (StartFollowing(uTarget))
+    {
+        TRACE1("Attack -> no, we follow!");
+        return false;
+    }
 
     uTarget2 = uTarget;
     if (!uTarget2.IsLive())
